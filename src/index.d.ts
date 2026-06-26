@@ -1,4 +1,4 @@
-import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel';
+import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssDependencyGraphEvidence } from './dependency-graph.js';
 
 export interface CssProjectionOptions {
   readonly banner?: string;
@@ -216,7 +216,7 @@ export interface CssSemanticSheet {
   readonly sourcePath?: string;
   readonly sourceHash: string;
   readonly records: readonly CssSemanticRecord[];
-  readonly cssModules?: CssModuleEvidence;
+  readonly cssModules?: CssModuleEvidence; readonly dependencyGraphEvidence: CssDependencyGraphEvidence;
   readonly sheetHash: string;
   readonly summary: Readonly<Record<string, number>>;
   readonly proofGaps: readonly CssSemanticProofGap[];
@@ -227,7 +227,7 @@ export interface CssSemanticMergeEvidence {
   readonly kind: 'frontier.lang.cssSemanticMergeEvidence'; readonly version: 1;
   readonly status: 'ready' | 'needs-review' | string; readonly sourcePath?: string; readonly sourceHash: string; readonly sheetHash: string;
   readonly records: readonly CssSemanticRecord[];
-  readonly cssModules?: CssModuleEvidence;
+  readonly cssModules?: CssModuleEvidence; readonly dependencyGraphEvidence: CssDependencyGraphEvidence;
   readonly proofGaps: readonly CssSemanticProofGap[];
   readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false;
   readonly cssModuleGeneratedNameEquivalenceClaim: false; readonly cssModuleUseSiteEquivalenceClaim: false;
@@ -254,7 +254,7 @@ export interface CssSafeMergeResult {
   readonly baseSheetHash?: string; readonly workerSheetHash?: string; readonly headSheetHash?: string;
   readonly workerChangedDeclarations?: number; readonly headChangedDeclarations?: number;
   readonly workerChangedCssModuleContracts?: number; readonly headChangedCssModuleContracts?: number;
-  readonly parserEvidence?: CssSafeMergeParserEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence;
+  readonly parserEvidence?: CssSafeMergeParserEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence; readonly dependencyGraphEvidence?: CssDependencyGraphEvidence;
 }
 
 export interface CssSafeMergeParserEvidence {

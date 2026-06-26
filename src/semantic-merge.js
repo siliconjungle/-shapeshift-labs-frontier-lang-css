@@ -1,4 +1,5 @@
 import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeConflicts } from './semantic-merge-css-modules.js';
+import { mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
@@ -31,9 +32,10 @@ function safeMergeCssSource(input = {}, context = {}) {
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const sourceShapeConflicts = unsupportedSourceShapeConflicts(id, sourcePath, sheets, changed, hash);
   const parserEvidence = mergeParserEvidence(sheets);
+  const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
   const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, input);
   const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts, ...selectorTargetPlan.conflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, selectorTargetEvidence: selectorTargetPlan.evidence });
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence });
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker);
   return merged(id, sourcePath, renderDeclarationIndex(mergedIndex), 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
@@ -44,6 +46,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     workerChangedCssModuleContracts: moduleChanges.worker.length,
     headChangedCssModuleContracts: moduleChanges.head.length,
     parserEvidence,
+    dependencyGraphEvidence,
     selectorTargetEvidence: selectorTargetPlan.evidence
   });
 }

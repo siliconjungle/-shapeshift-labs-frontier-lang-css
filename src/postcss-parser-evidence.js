@@ -102,6 +102,7 @@ function postcssAtRuleRecord(node, scopes, sourceHash, options) {
     statementText: kind === 'at-rule-statement' ? rawText : undefined,
     scopeKey: postcssAtRuleScopeKey(node),
     scopes,
+    dependencyTokens: atRuleDependencyTokens(node, atRuleName),
     scopedCascadeGraphHash: ScopeAtRules.has(atRuleName) ? options.scopedCascadeGraphHash : undefined,
     sourceSpan: sourceSpanFromPostcss(node.source, options.sourcePath),
     sourceHash,
@@ -114,6 +115,26 @@ function postcssAtRuleRecord(node, scopes, sourceHash, options) {
 
 function postcssAtRuleScopeKey(node) {
   return `@${String(node.name ?? 'unknown').toLowerCase()} ${String(node.params ?? '').trim()}`.trim();
+}
+
+function atRuleDependencyTokens(node, atRuleName) {
+  if (atRuleName !== 'font-face') return undefined;
+  const declarations = (node.nodes ?? []).filter((child) => child.type === 'decl');
+  const fontFamilies = declarations
+    .filter((declaration) => String(declaration.prop ?? '').toLowerCase() === 'font-family')
+    .flatMap((declaration) => fontFamilyNames(declaration.value));
+  const urls = declarations.flatMap((declaration) => cssUrlReferences(declaration.value));
+  return compactRecord({ fontFamilies: unique(fontFamilies), urls: unique(urls) });
+}
+
+function fontFamilyNames(value) {
+  return String(value ?? '').split(',').map((part) => part.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+}
+
+function cssUrlReferences(value) {
+  return [...String(value ?? '').matchAll(/\burl\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/g)]
+    .map((match) => (match[1] ?? match[2] ?? match[3] ?? '').trim())
+    .filter(Boolean);
 }
 
 function sourceSpanFromPostcss(source, fallbackPath) {
@@ -147,6 +168,7 @@ function selectorSpecificity(selector) {
 }
 
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
+function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function compactRecord(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
 
 export { parsePostcssSemanticRecords };

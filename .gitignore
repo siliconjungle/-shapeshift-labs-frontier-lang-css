@@ -9,3 +9,4 @@ agent-worktrees/
 .npmrc.*
 .DS_Store
 npm-debug.log*
+.loom/
