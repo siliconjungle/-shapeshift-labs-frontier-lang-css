@@ -150,7 +150,7 @@ function unsupportedSourceShapeChanges(baseSheet, currentSheet, declarationChang
     if (changedDeclarationRuleKeys.has(before?.ruleKey) || changedDeclarationRuleKeys.has(after?.ruleKey)) return [];
     return [{
       side,
-      reasonCode: 'css-source-shape-unsupported',
+      reasonCode: sourceShapeChangeReason(before, after),
       shapeKey: key,
       before: sourceShapeDetails(before),
       after: sourceShapeDetails(after)
@@ -181,6 +181,19 @@ function sourceShapeIndex(sheet, hash) {
         atRuleName: record.atRuleName,
         conditionText: record.conditionText,
         representedByDeclarations: false,
+        unsupportedReasonCode: atRuleUnsupportedReasonCode(record),
+        hash: record.atRuleHash
+      });
+    }
+    if (record.kind === 'at-rule-statement') {
+      const shapeKey = `at-rule-statement:${[...(record.scopes ?? []), record.atRuleName, record.conditionText].join('::')}`;
+      result.set(shapeKey, {
+        kind: 'at-rule-statement',
+        atRuleName: record.atRuleName,
+        conditionText: record.conditionText,
+        statementText: record.statementText,
+        representedByDeclarations: false,
+        unsupportedReasonCode: atRuleStatementUnsupportedReasonCode(record),
         hash: record.atRuleHash
       });
     }
@@ -195,7 +208,15 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
 
 function sameContractChange(left, right) { return (left.after?.hash ?? '') === (right.after?.hash ?? '') && left.kind === right.kind; }
 function contractChangeDetails(change) { return { kind: change.kind, contractKind: (change.after ?? change.before)?.contractKind, name: (change.after ?? change.before)?.name, hash: change.after?.hash }; }
-function sourceShapeDetails(shape) { return shape ? { kind: shape.kind, selectors: shape.selectors, atRuleName: shape.atRuleName, conditionText: shape.conditionText, representedByDeclarations: shape.representedByDeclarations } : undefined; }
+function sourceShapeDetails(shape) { return shape ? { kind: shape.kind, selectors: shape.selectors, atRuleName: shape.atRuleName, conditionText: shape.conditionText, statementText: shape.statementText, representedByDeclarations: shape.representedByDeclarations } : undefined; }
+function sourceShapeChangeReason(before, after) {
+  if (!before && after?.kind === 'at-rule') return 'css-atrule-new-scope-unsupported';
+  if (before?.kind === 'at-rule' || after?.kind === 'at-rule') return after?.unsupportedReasonCode ?? before?.unsupportedReasonCode ?? 'css-atrule-condition-edit-unsupported';
+  if (before?.kind === 'at-rule-statement' || after?.kind === 'at-rule-statement') return after?.unsupportedReasonCode ?? before?.unsupportedReasonCode ?? 'css-atrule-statement-unsupported';
+  return 'css-source-shape-unsupported';
+}
+function atRuleUnsupportedReasonCode(record) { return record.atRuleName === 'layer' ? 'css-layer-name-edit-unsupported' : 'css-atrule-condition-edit-unsupported'; }
+function atRuleStatementUnsupportedReasonCode(record) { return record.atRuleName === 'layer' ? 'css-layer-order-statement-unsupported' : 'css-atrule-statement-unsupported'; }
 function ruleIdentityKey(record) { return [...(record.scopes ?? []), record.selectors.join(',')].join('::'); }
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function uniqueProofGaps(values) {

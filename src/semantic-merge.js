@@ -10,8 +10,6 @@ function safeMergeCssSource(input = {}, context = {}) {
   const head = input.headSourceText ?? base;
   if (typeof base !== 'string' || typeof worker !== 'string' || typeof head !== 'string') return blocked(id, sourcePath, 'css-source-text-missing');
   if (worker === head) return merged(id, sourcePath, worker, 'worker-head-identical', hash);
-  if (worker === base) return merged(id, sourcePath, head, 'worker-unchanged', hash);
-  if (head === base) return merged(id, sourcePath, worker, 'head-unchanged', hash);
   const sheets = {
     base: parseSheet(base, sheetOptions(input, 'base', sourcePath)),
     worker: parseSheet(worker, sheetOptions(input, 'worker', sourcePath)),
@@ -47,7 +45,17 @@ function safeMergeCssSource(input = {}, context = {}) {
 function declarationIndex(sheet) {
   const declarations = new Map();
   const order = [];
+  const statements = [];
   for (const record of sheet.records) {
+    if (record.kind === 'at-rule-statement') {
+      statements.push({
+        key: record.atRuleHash,
+        scopes: record.scopes ?? [],
+        statementText: record.statementText,
+        atRuleName: record.atRuleName,
+        conditionText: record.conditionText
+      });
+    }
     if (record.kind !== 'rule') continue;
     const ruleKey = ruleIdentityKey(record);
     for (const declaration of record.declarations ?? []) {
@@ -66,7 +74,7 @@ function declarationIndex(sheet) {
       order.push(entry.key);
     }
   }
-  return { declarations, order: unique(order) };
+  return { declarations, order: unique(order), statements };
 }
 
 function changedDeclarations(baseIndex, currentIndex, side) {
@@ -143,7 +151,7 @@ function applyDeclarationChanges(index, changes) {
       if (!order.includes(change.key)) order.push(change.key);
     }
   }
-  return { declarations, order: order.filter((key) => declarations.has(key)) };
+  return { declarations, order: order.filter((key) => declarations.has(key)), statements: index.statements ?? [] };
 }
 
 function renderDeclarationIndex(index) {
@@ -154,10 +162,25 @@ function renderDeclarationIndex(index) {
     groups.set(declaration.ruleKey, [...(groups.get(declaration.ruleKey) ?? []), declaration]);
   }
   const chunks = [];
+  for (const statement of index.statements ?? []) renderAtRuleStatement(chunks, statement);
   for (const declarations of groups.values()) {
     renderDeclarationGroup(chunks, declarations);
   }
   return `${chunks.join('\n').trimEnd()}\n`;
+}
+
+function renderAtRuleStatement(chunks, statement) {
+  let indent = 0;
+  for (const scope of statement.scopes ?? []) {
+    chunks.push(`${spaces(indent)}${scope} {`);
+    indent += 2;
+  }
+  chunks.push(`${spaces(indent)}${statement.statementText}`);
+  for (let index = (statement.scopes ?? []).length - 1; index >= 0; index -= 1) {
+    indent -= 2;
+    chunks.push(`${spaces(indent)}}`);
+  }
+  chunks.push('');
 }
 
 function renderDeclarationGroup(chunks, declarations) {

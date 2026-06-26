@@ -234,6 +234,18 @@ assert.equal(cssScopedMerge.status, 'merged');
 assert.match(cssScopedMerge.mergedSourceText, /@media \(min-width: 700px\) \{/);
 assert.match(cssScopedMerge.mergedSourceText, /color: blue/);
 assert.match(cssScopedMerge.mergedSourceText, /background-color: white/);
+const cssLayerStatementMerge = safeMergeCssSource({
+  id: 'css_layer_statement_preserved',
+  baseSourceText: '@layer reset, components;\n.button { color: red; }\n',
+  workerSourceText: '@layer reset, components;\n.button { color: blue; }\n',
+  headSourceText: '@layer reset, components;\n.button { color: red; }\n'
+});
+assert.equal(cssLayerStatementMerge.status, 'merged');
+assert.match(cssLayerStatementMerge.mergedSourceText, /@layer reset, components;/);
+const cssLayerStatementConflict = safeMergeCssSource({ id: 'css_layer_statement_conflict', baseSourceText: '@layer reset, components;\n.button { color: red; }\n', workerSourceText: '@layer components, reset;\n.button { color: red; }\n', headSourceText: '@layer reset, components;\n.button { color: blue; }\n' });
+assert.equal(cssLayerStatementConflict.conflicts.some((conflict) => conflict.details.reasonCode === 'css-layer-order-statement-unsupported'), true);
+const cssOneSidedScopeConflict = safeMergeCssSource({ id: 'css_one_sided_scope_conflict', baseSourceText: '.button { color: red; }\n', workerSourceText: '@media (min-width: 700px) { .button { color: red; } }\n', headSourceText: '.button { color: red; }\n', scopedCascadeGraphHash: 'hash_scoped_cascade' });
+assert.equal(cssOneSidedScopeConflict.conflicts.some((conflict) => conflict.details.reasonCode === 'css-atrule-new-scope-unsupported'), true);
 
 const cssModuleMergeBase = [
   '.root {',

@@ -125,6 +125,7 @@ export interface CssSemanticRecord {
   readonly atRuleName?: string;
   readonly conditionText?: string;
   readonly scopeKey?: string;
+  readonly statementText?: string;
   readonly scopedCascadeGraphHash?: string;
   readonly sourceSpan: CssSourceSpan;
   readonly sourceHash: string;

@@ -114,6 +114,7 @@ export function safeMergeCssSource(input = {}) {
 
 function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash, options) {
   const records = [];
+  const blockRanges = [];
   let index = start;
   while (index < end) {
     const open = sourceText.indexOf('{', index);
@@ -121,6 +122,7 @@ function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash, 
     const close = matchingBrace(sourceText, open, end);
     if (close < 0) break;
     const preludeStart = previousBoundary(sourceText, index, open);
+    blockRanges.push([preludeStart, close + 1]);
     const prelude = sourceText.slice(preludeStart, open).replace(/\/\*[\s\S]*?\*\//g, '').trim();
     const body = sourceText.slice(open + 1, close);
     if (prelude.startsWith('@')) {
@@ -132,7 +134,8 @@ function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash, 
     }
     index = close + 1;
   }
-  return records;
+  records.push(...parseAtRuleStatements(sourceText, start, end, scopes, lineStarts, sourceHash, options, blockRanges));
+  return records.sort((left, right) => left.sourceSpan.startOffset - right.sourceSpan.startOffset);
 }
 
 function cssRuleRecord(prelude, body, start, end, lineStarts, sourceHash, scopes, options) {
@@ -181,6 +184,47 @@ function parseAtRule(prelude, start, end, lineStarts, sourceHash, scopes, option
     sourceHash,
     atRuleHash: hashSemanticValue({ kind: 'frontier.lang.css.atRule.v1', atRuleName, conditionText, scopes }),
     proofGaps: proofGaps.length ? proofGaps : undefined
+  });
+}
+
+function parseAtRuleStatements(sourceText, start, end, scopes, lineStarts, sourceHash, options, blockRanges) {
+  const records = [];
+  let index = start;
+  while (index < end) {
+    const semicolon = sourceText.indexOf(';', index);
+    if (semicolon < 0 || semicolon >= end) break;
+    const range = blockRanges.find(([rangeStart, rangeEnd]) => semicolon >= rangeStart && semicolon < rangeEnd);
+    if (range) {
+      index = range[1];
+      continue;
+    }
+    const statementStart = previousBoundary(sourceText, index, semicolon);
+    const statementText = sourceText.slice(statementStart, semicolon + 1).replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    if (statementText.startsWith('@') && !statementText.includes('{')) records.push(parseAtRuleStatement(statementText, statementStart, semicolon + 1, lineStarts, sourceHash, scopes, options));
+    index = semicolon + 1;
+  }
+  return records;
+}
+
+function parseAtRuleStatement(statementText, start, end, lineStarts, sourceHash, scopes, options) {
+  const body = statementText.replace(/;$/, '').trim();
+  const match = /^@([A-Za-z-]+)\s*([\s\S]*)$/.exec(body);
+  const atRuleName = match?.[1]?.toLowerCase() ?? 'unknown';
+  const conditionText = match?.[2]?.trim() ?? '';
+  const proofGaps = [];
+  if (atRuleName === 'layer') proofGaps.push(proofGap('css-layer-order-statement-unsupported', 'CSS @layer statement order requires cascade order evidence.'));
+  else proofGaps.push(proofGap(`css-${atRuleName}-statement-equivalence-unproved`, `CSS @${atRuleName} statement semantics require host evidence.`));
+  return compactRecord({
+    kind: 'at-rule-statement',
+    atRuleName,
+    conditionText,
+    statementText,
+    scopes,
+    scopedCascadeGraphHash: ScopeAtRules.has(atRuleName) ? options.scopedCascadeGraphHash : undefined,
+    sourceSpan: sourceSpan(start, end, lineStarts),
+    sourceHash,
+    atRuleHash: hashSemanticValue({ kind: 'frontier.lang.css.atRuleStatement.v1', atRuleName, conditionText, scopes, statementText }),
+    proofGaps
   });
 }
 
@@ -256,7 +300,7 @@ function positionAt(offset, lineStarts) {
 
 function sourceRef(node, extra = {}) { return { semanticNodeId: node.id, semanticNodeKind: node.kind, semanticNodeName: node.name, ...extra }; }
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
-function hashableCssRecord(record) { return { kind: record.kind, selectors: record.selectors, specificity: record.specificity, scopes: record.scopes, atRuleName: record.atRuleName, conditionText: record.conditionText, declarations: record.declarations?.map((item) => ({ property: item.property, value: item.value, important: item.important })), proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
+function hashableCssRecord(record) { return { kind: record.kind, selectors: record.selectors, specificity: record.specificity, scopes: record.scopes, atRuleName: record.atRuleName, conditionText: record.conditionText, statementText: record.statementText, declarations: record.declarations?.map((item) => ({ property: item.property, value: item.value, important: item.important })), proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
 function computeLineStarts(text) { const starts = [0]; for (let index = 0; index < text.length; index += 1) if (text[index] === '\n') starts.push(index + 1); return starts; }
 function cssIdentifier(value) { return String(value ?? 'unknown').replace(/[^A-Za-z0-9_-]/g, '-').replace(/^-+/, '') || 'unknown'; }
 function cssString(value) { return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
