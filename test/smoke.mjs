@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { createCssSemanticMergeEvidence, emitCss, emitCssWithSourceMap, parseCssSemanticSheet, renderCssAst, renderCssAstWithSourceMap, safeMergeCssSource, toCssAst } from '../dist/index.js';
-import './parser-evidence-smoke.mjs'; import './selector-target-smoke.mjs'; import './dependency-graph-smoke.mjs';
+import './parser-evidence-smoke.mjs'; import './selector-target-smoke.mjs'; import './dependency-graph-smoke.mjs'; import './cascade-runtime-proof-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoCss', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),

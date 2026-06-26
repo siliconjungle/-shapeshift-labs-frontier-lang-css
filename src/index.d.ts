@@ -1,4 +1,4 @@
-import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssDependencyGraphEvidence } from './dependency-graph.js';
+import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence } from './dependency-graph.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js';
 
 export interface CssProjectionOptions {
   readonly banner?: string;
@@ -13,6 +13,8 @@ export interface CssProjectionOptions {
   readonly cssModuleCompositionGraphHash?: string;
   readonly icssGraphHash?: string;
   readonly scopedCascadeGraphHash?: string;
+  readonly cssCascadeRuntimeProof?: CssCascadeRuntimeProof; readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProof[];
+  readonly cssSourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly cssSourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[];
   readonly selectorTargetGraphHash?: string;
   readonly targetPath?: string;
   readonly semanticIndexId?: string;
@@ -20,36 +22,16 @@ export interface CssProjectionOptions {
   readonly evidence?: readonly CssProjectionEvidenceRecord[];
 }
 
-export interface CssProjectionEvidenceRecord {
-  readonly id: string;
-  readonly kind?: string;
-  readonly summary?: string;
-  readonly [key: string]: unknown;
-}
+export interface CssProjectionEvidenceRecord { readonly id: string; readonly kind?: string; readonly summary?: string; readonly [key: string]: unknown; }
 
 export interface CssSourceSpan {
-  readonly path?: string;
-  readonly startOffset?: number;
-  readonly endOffset?: number;
-  readonly startLine: number;
-  readonly startColumn: number;
-  readonly endLine: number;
-  readonly endColumn: number;
+  readonly path?: string; readonly startOffset?: number; readonly endOffset?: number;
+  readonly startLine: number; readonly startColumn: number; readonly endLine: number; readonly endColumn: number;
 }
 
-export interface CssParserDiagnostic {
-  readonly reason?: string;
-  readonly line?: number;
-  readonly column?: number;
-  readonly input?: string;
-  readonly [key: string]: unknown;
-}
+export interface CssParserDiagnostic { readonly reason?: string; readonly line?: number; readonly column?: number; readonly input?: string; readonly [key: string]: unknown; }
 
-export interface CssParserEvidence {
-  readonly name: 'postcss' | string;
-  readonly sourceCodeLocationInfo: boolean;
-  readonly parseErrors: readonly CssParserDiagnostic[];
-}
+export interface CssParserEvidence { readonly name: 'postcss' | string; readonly sourceCodeLocationInfo: boolean; readonly parseErrors: readonly CssParserDiagnostic[]; }
 
 export interface CssSourceRef {
   readonly semanticNodeId: string;
@@ -242,6 +224,8 @@ export interface CssSafeMergeConflict {
 export interface CssSafeMergeAdmission {
   readonly status: 'auto-merge-candidate' | 'blocked' | string; readonly action: 'apply-css' | 'human-review' | string;
   readonly reviewRequired: boolean; readonly reasonCodes: readonly string[];
+  readonly browserCascadeEquivalenceClaim?: true;
+  readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
 }
 
 export interface CssSafeMergeResult {
@@ -251,10 +235,12 @@ export interface CssSafeMergeResult {
   readonly conflicts: readonly CssSafeMergeConflict[];
   readonly admission: CssSafeMergeAdmission;
   readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false;
+  readonly browserCascadeEquivalenceClaim: boolean; readonly browserRenderEquivalenceClaim: false;
   readonly baseSheetHash?: string; readonly workerSheetHash?: string; readonly headSheetHash?: string;
   readonly workerChangedDeclarations?: number; readonly headChangedDeclarations?: number;
   readonly workerChangedCssModuleContracts?: number; readonly headChangedCssModuleContracts?: number;
   readonly parserEvidence?: CssSafeMergeParserEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence; readonly dependencyGraphEvidence?: CssDependencyGraphEvidence;
+  readonly cascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
 }
 
 export interface CssSafeMergeParserEvidence {
@@ -300,6 +286,14 @@ export interface CssSafeMergeInput {
   readonly cssModule?: boolean; readonly cssModules?: boolean;
   readonly generatedClassNameMap?: Readonly<Record<string, string>>;
   readonly generatedClassNameMapHash?: string; readonly jsTsUseSiteGraphHash?: string; readonly cssModuleCompositionGraphHash?: string; readonly icssGraphHash?: string; readonly scopedCascadeGraphHash?: string;
+  readonly cssCascadeRuntimeProof?: CssCascadeRuntimeProof; readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProof[];
+  readonly cssCascadeRuntimeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
+  readonly cssSourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly cssSourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[];
+  readonly cssSourceBoundCascadeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
+  readonly cascadeRuntimeProof?: CssCascadeRuntimeProof; readonly cascadeRuntimeProofs?: readonly CssCascadeRuntimeProof[];
+  readonly cascadeRuntimeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
+  readonly sourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly sourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[];
+  readonly sourceBoundCascadeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
   readonly selectorTargetGraphHash?: string; readonly selectorTargetEquivalences?: readonly CssSelectorTargetEquivalence[];
   readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
   readonly baseGeneratedClassNameMapHash?: string; readonly workerGeneratedClassNameMapHash?: string; readonly headGeneratedClassNameMapHash?: string;

@@ -1,6 +1,8 @@
-import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeConflicts } from './semantic-merge-css-modules.js';
+import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeChanges } from './semantic-merge-css-modules.js';
+import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
 import { mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
+import { shorthandGroupForProperty } from './semantic-merge-shorthand.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
   const parseSheet = context.parseCssSemanticSheet;
@@ -30,14 +32,23 @@ function safeMergeCssSource(input = {}, context = {}) {
     ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head)
   ];
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
-  const sourceShapeConflicts = unsupportedSourceShapeConflicts(id, sourcePath, sheets, changed, hash);
   const parserEvidence = mergeParserEvidence(sheets);
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
   const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, input);
-  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts, ...selectorTargetPlan.conflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence });
+  const shapeChanges = unsupportedSourceShapeChanges(sheets, changed, hash);
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker);
-  return merged(id, sourcePath, renderDeclarationIndex(mergedIndex), 'semantic-declaration-merge', hash, {
+  const mergedSourceText = renderDeclarationIndex(mergedIndex);
+  const cascadeRuntimeAdmission = admitCascadeRuntimeProofs({
+    id,
+    sourcePath,
+    input,
+    sourceShapeChanges: shapeChanges,
+    binding: { base, worker, head, output: mergedSourceText },
+    hash
+  });
+  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...selectorTargetPlan.conflicts];
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs });
+  return merged(id, sourcePath, mergedSourceText, 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
     workerSheetHash: sheets.worker.sheetHash,
     headSheetHash: sheets.head.sheetHash,
@@ -47,7 +58,9 @@ function safeMergeCssSource(input = {}, context = {}) {
     headChangedCssModuleContracts: moduleChanges.head.length,
     parserEvidence,
     dependencyGraphEvidence,
-    selectorTargetEvidence: selectorTargetPlan.evidence
+    selectorTargetEvidence: selectorTargetPlan.evidence,
+    cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs,
+    browserCascadeEquivalenceClaim: cascadeRuntimeAdmission.proofs.length > 0
   });
 }
 
@@ -267,20 +280,25 @@ function blocked(id, sourcePath, reasonCode, conflicts = [], extra = {}) {
 }
 
 function result(id, sourcePath, status, body) {
+  const browserCascadeEquivalenceClaim = status === 'merged' && body.browserCascadeEquivalenceClaim === true;
   return {
     kind: 'frontier.lang.cssSafeMerge',
     version: 1,
     id,
     sourcePath,
     status,
+    ...body,
     autoMergeClaim: false,
     semanticEquivalenceClaim: false,
-    ...body,
+    browserCascadeEquivalenceClaim,
+    browserRenderEquivalenceClaim: false,
     admission: {
       status: status === 'merged' ? 'auto-merge-candidate' : 'blocked',
       action: status === 'merged' ? 'apply-css' : 'human-review',
       reviewRequired: status !== 'merged',
-      reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode))
+      reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
+      browserCascadeEquivalenceClaim: browserCascadeEquivalenceClaim || undefined,
+      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined
     }
   };
 }
@@ -297,20 +315,5 @@ function proofGapsForDeclaration(record, declaration) {
 }
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function spaces(count) { return ' '.repeat(Math.max(0, count)); }
-
-function shorthandGroupForProperty(property) {
-  if (ShorthandGroups.has(property)) return property;
-  for (const [group, longhands] of ShorthandGroups) if (longhands.includes(property)) return group;
-  return undefined;
-}
-
-const ShorthandGroups = new Map([
-  ['background', ['background-attachment', 'background-clip', 'background-color', 'background-image', 'background-origin', 'background-position', 'background-repeat', 'background-size']],
-  ['border', ['border-color', 'border-style', 'border-width', 'border-top', 'border-right', 'border-bottom', 'border-left']],
-  ['font', ['font-family', 'font-size', 'font-stretch', 'font-style', 'font-variant', 'font-weight', 'line-height']],
-  ['list-style', ['list-style-image', 'list-style-position', 'list-style-type']],
-  ['margin', ['margin-top', 'margin-right', 'margin-bottom', 'margin-left']],
-  ['padding', ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']]
-]);
 
 export { safeMergeCssSource };

@@ -131,14 +131,18 @@ function cssModuleOverlapConflicts(id, sourcePath, workerChanges, headChanges) {
 }
 
 function unsupportedSourceShapeConflicts(id, sourcePath, sheets, declarationChanges, hash) {
-  const sourceShapeChanges = {
-    worker: unsupportedSourceShapeChanges(sheets.base, sheets.worker, declarationChanges.worker, 'worker', hash),
-    head: unsupportedSourceShapeChanges(sheets.base, sheets.head, declarationChanges.head, 'head', hash)
-  };
-  return [...sourceShapeChanges.worker, ...sourceShapeChanges.head].map((change) => conflict(id, sourcePath, 'css-source-shape-unsupported', change.reasonCode, change));
+  return unsupportedSourceShapeChanges(sheets, declarationChanges, hash)
+    .map((change) => conflict(id, sourcePath, 'css-source-shape-unsupported', change.reasonCode, change));
 }
 
-function unsupportedSourceShapeChanges(baseSheet, currentSheet, declarationChanges, side, hash) {
+function unsupportedSourceShapeChanges(sheets, declarationChanges, hash) {
+  return [
+    ...unsupportedSourceShapeChangesForSide(sheets.base, sheets.worker, declarationChanges.worker, 'worker', hash),
+    ...unsupportedSourceShapeChangesForSide(sheets.base, sheets.head, declarationChanges.head, 'head', hash)
+  ];
+}
+
+function unsupportedSourceShapeChangesForSide(baseSheet, currentSheet, declarationChanges, side, hash) {
   const baseShape = sourceShapeIndex(baseSheet, hash);
   const currentShape = sourceShapeIndex(currentSheet, hash);
   const keys = unique([...baseShape.keys(), ...currentShape.keys()]);
@@ -226,4 +230,4 @@ function uniqueProofGaps(values) {
   return [...byCode.values()];
 }
 
-export { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeConflicts };
+export { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeChanges, unsupportedSourceShapeConflicts };
