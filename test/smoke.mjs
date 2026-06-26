@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
-import { createCssSemanticMergeEvidence, emitCss, emitCssWithSourceMap, parseCssSemanticSheet, renderCssAst, renderCssAstWithSourceMap, toCssAst } from '../dist/index.js';
+import { createCssSemanticMergeEvidence, emitCss, emitCssWithSourceMap, parseCssSemanticSheet, renderCssAst, renderCssAstWithSourceMap, safeMergeCssSource, toCssAst } from '../dist/index.js';
 
 const document = createDocument({ id: 'doc', name: 'TodoCss', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),
@@ -122,3 +122,51 @@ assert.equal(moduleEvidence.cssModuleUseSiteEquivalenceClaim, false);
 assert.equal(provenModuleEvidence.cssModules.generatedClassNameMapHash.startsWith('fnv1a32:'), true);
 assert.equal(provenModuleEvidence.cssModules.proofGaps.length, 0);
 assert.equal(provenModuleEvidence.status, 'ready');
+
+const cssMergeBase = [
+  '.button {',
+  '  color: red;',
+  '  padding: 1rem;',
+  '}',
+  ''
+].join('\n');
+const cssMergeWorker = [
+  '.button {',
+  '  color: blue;',
+  '  padding: 1rem;',
+  '}',
+  ''
+].join('\n');
+const cssMergeHead = [
+  '.button {',
+  '  color: red;',
+  '  padding: 1rem;',
+  '  background-color: white;',
+  '}',
+  ''
+].join('\n');
+const cssMerged = safeMergeCssSource({
+  id: 'css_independent_declarations',
+  sourcePath: 'button.css',
+  baseSourceText: cssMergeBase,
+  workerSourceText: cssMergeWorker,
+  headSourceText: cssMergeHead
+});
+assert.equal(cssMerged.kind, 'frontier.lang.cssSafeMerge');
+assert.equal(cssMerged.status, 'merged');
+assert.equal(cssMerged.operation, 'semantic-declaration-merge');
+assert.match(cssMerged.mergedSourceText, /color: blue/);
+assert.match(cssMerged.mergedSourceText, /background-color: white/);
+assert.equal(cssMerged.autoMergeClaim, false);
+assert.equal(cssMerged.semanticEquivalenceClaim, false);
+
+const cssMergeConflict = safeMergeCssSource({
+  id: 'css_overlapping_declaration_conflict',
+  sourcePath: 'button.css',
+  baseSourceText: cssMergeBase,
+  workerSourceText: cssMergeWorker,
+  headSourceText: cssMergeBase.replace('color: red', 'color: green')
+});
+assert.equal(cssMergeConflict.status, 'blocked');
+assert.equal(cssMergeConflict.conflicts.some((conflict) => conflict.code === 'css-cascade-declaration-conflict'), true);
+assert.equal(cssMergeConflict.admission.reasonCodes.includes('css-cascade-declaration-conflict'), true);

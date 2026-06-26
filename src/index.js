@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { createCssModuleEvidence } from './css-modules.js';
+import { safeMergeCssSource as safeMergeCssSourceImpl } from './semantic-merge.js';
 
 const ShorthandProperties = new Set(['all', 'animation', 'background', 'border', 'border-block', 'border-color', 'border-image', 'border-inline', 'border-radius', 'border-style', 'border-width', 'columns', 'flex', 'font', 'gap', 'grid', 'grid-area', 'grid-column', 'grid-row', 'inset', 'list-style', 'margin', 'offset', 'outline', 'overflow', 'padding', 'place-content', 'place-items', 'place-self', 'text-decoration', 'transition']);
 const RuntimeAtRules = new Set(['keyframes', 'font-face', 'page', 'property']);
@@ -105,6 +106,10 @@ export function createCssSemanticMergeEvidence(sourceText, options = {}) {
     browserCascadeEquivalenceClaim: false,
     browserRenderEquivalenceClaim: false
   };
+}
+
+export function safeMergeCssSource(input = {}) {
+  return safeMergeCssSourceImpl(input, { parseCssSemanticSheet, hashSemanticValue });
 }
 
 function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash) {

@@ -211,7 +211,8 @@ Package source repositories:
 ```js
 import {
   createCssSemanticMergeEvidence,
-  emitCssWithSourceMap
+  emitCssWithSourceMap,
+  safeMergeCssSource
 } from '@shapeshift-labs/frontier-lang-css';
 
 const { code, sourceMap } = emitCssWithSourceMap(document, {
@@ -222,12 +223,20 @@ const { code, sourceMap } = emitCssWithSourceMap(document, {
 const evidence = createCssSemanticMergeEvidence(code, {
   sourcePath: 'todo.css'
 });
+
+const merge = safeMergeCssSource({
+  sourcePath: 'button.css',
+  baseSourceText: '.button { color: red; }\n',
+  workerSourceText: '.button { color: blue; }\n',
+  headSourceText: '.button { color: red; background-color: white; }\n'
+});
 ```
 
-`sourceMap.mappings` links emitted rule blocks back to Frontier Lang semantic node ids. `createCssSemanticMergeEvidence` records selectors, specificity, declarations, custom properties, cascade keys, source spans, stable hashes, and fail-closed proof gaps for cascade/render-sensitive CSS surfaces.
+`sourceMap.mappings` links emitted rule blocks back to Frontier Lang semantic node ids. `createCssSemanticMergeEvidence` records selectors, specificity, declarations, custom properties, cascade keys, source spans, stable hashes, and fail-closed proof gaps for cascade/render-sensitive CSS surfaces. `safeMergeCssSource` admits independent unscoped declaration edits by cascade key and blocks overlapping declaration changes or proof gaps.
 
 ## Support Boundary
 
 - Ready evidence: style rules, selectors, specificity, declarations, custom properties, source spans, stable hashes.
+- Safe merge: independent unscoped declarations with non-overlapping cascade keys; output is a canonical CSS render and not a byte/trivia-preserving claim.
 - Review-only gaps: shorthands without longhand expansion, scoped cascade under `@media` / `@supports` / `@container` / `@layer`, `@keyframes`, `@font-face`, `@page`, browser layout and render equivalence.
 - Claims: `autoMergeClaim`, `semanticEquivalenceClaim`, `browserCascadeEquivalenceClaim`, and `browserRenderEquivalenceClaim` remain false.

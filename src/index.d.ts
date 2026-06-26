@@ -217,6 +217,48 @@ export interface CssSemanticMergeEvidence {
   readonly browserRenderEquivalenceClaim: false;
 }
 
+export interface CssSafeMergeConflict {
+  readonly code: string;
+  readonly gateId: 'css-semantic-merge' | string;
+  readonly sourcePath?: string;
+  readonly details: Readonly<Record<string, unknown>> & { readonly reasonCode: string; readonly conflictKey: string };
+}
+
+export interface CssSafeMergeAdmission {
+  readonly status: 'auto-merge-candidate' | 'blocked' | string;
+  readonly action: 'apply-css' | 'human-review' | string;
+  readonly reviewRequired: boolean;
+  readonly reasonCodes: readonly string[];
+}
+
+export interface CssSafeMergeResult {
+  readonly kind: 'frontier.lang.cssSafeMerge';
+  readonly version: 1;
+  readonly id: string;
+  readonly sourcePath?: string;
+  readonly status: 'merged' | 'blocked' | string;
+  readonly operation: string;
+  readonly mergedSourceText?: string;
+  readonly mergedSourceHash?: string;
+  readonly conflicts: readonly CssSafeMergeConflict[];
+  readonly admission: CssSafeMergeAdmission;
+  readonly autoMergeClaim: false;
+  readonly semanticEquivalenceClaim: false;
+  readonly baseSheetHash?: string;
+  readonly workerSheetHash?: string;
+  readonly headSheetHash?: string;
+  readonly workerChangedDeclarations?: number;
+  readonly headChangedDeclarations?: number;
+}
+
+export interface CssSafeMergeInput {
+  readonly id?: string;
+  readonly sourcePath?: string;
+  readonly baseSourceText?: string;
+  readonly workerSourceText?: string;
+  readonly headSourceText?: string;
+}
+
 export declare function toCssAst(document: FrontierLangDocument, options?: CssProjectionOptions): CssAstStylesheet;
 export declare function renderCssAst(ast: CssAstStylesheet): string;
 export declare function renderCssAstWithSourceMap(ast: CssAstStylesheet, options?: CssProjectionOptions): CssProjectionResult;
@@ -224,3 +266,4 @@ export declare function emitCss(document: FrontierLangDocument, options?: CssPro
 export declare function emitCssWithSourceMap(document: FrontierLangDocument, options?: CssProjectionOptions): CssProjectionWithAstResult;
 export declare function parseCssSemanticSheet(sourceText: string, options?: CssProjectionOptions): CssSemanticSheet;
 export declare function createCssSemanticMergeEvidence(sourceText: string, options?: CssProjectionOptions): CssSemanticMergeEvidence;
+export declare function safeMergeCssSource(input?: CssSafeMergeInput): CssSafeMergeResult;
