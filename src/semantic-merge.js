@@ -1,4 +1,5 @@
 import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeConflicts } from './semantic-merge-css-modules.js';
+import { mergeSelectorTargetEvidence, selectorTargetMoveConflicts } from './semantic-merge-selector-targets.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
   const parseSheet = context.parseCssSemanticSheet;
@@ -29,9 +30,11 @@ function safeMergeCssSource(input = {}, context = {}) {
   ];
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const sourceShapeConflicts = unsupportedSourceShapeConflicts(id, sourcePath, sheets, changed, hash);
-  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts];
   const parserEvidence = mergeParserEvidence(sheets);
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence });
+  const selectorTargetEvidence = mergeSelectorTargetEvidence(sheets, changed);
+  const selectorTargetConflicts = selectorTargetMoveConflicts(id, sourcePath, selectorTargetEvidence, changed);
+  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts, ...selectorTargetConflicts];
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, selectorTargetEvidence });
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, changed.head), changed.worker);
   return merged(id, sourcePath, renderDeclarationIndex(mergedIndex), 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
@@ -41,7 +44,8 @@ function safeMergeCssSource(input = {}, context = {}) {
     headChangedDeclarations: changed.head.length,
     workerChangedCssModuleContracts: moduleChanges.worker.length,
     headChangedCssModuleContracts: moduleChanges.head.length,
-    parserEvidence
+    parserEvidence,
+    selectorTargetEvidence
   });
 }
 
@@ -71,6 +75,7 @@ function declarationIndex(sheet) {
         value: declaration.value,
         important: declaration.important,
         declarationHash: declaration.declarationHash,
+        selectorTargetGraphHash: record.selectorTargetGraphHash,
         proofGaps: proofGapsForDeclaration(record, declaration)
       };
       declarations.set(entry.key, entry);

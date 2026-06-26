@@ -9,7 +9,8 @@ function sheetOptions(input, side, sourcePath) {
     jsTsUseSiteGraphHash: input[`${prefix}JsTsUseSiteGraphHash`] ?? input.jsTsUseSiteGraphHash,
     cssModuleCompositionGraphHash: input[`${prefix}CssModuleCompositionGraphHash`] ?? input.cssModuleCompositionGraphHash,
     icssGraphHash: input[`${prefix}IcssGraphHash`] ?? input.icssGraphHash,
-    scopedCascadeGraphHash: input[`${prefix}ScopedCascadeGraphHash`] ?? input.scopedCascadeGraphHash
+    scopedCascadeGraphHash: input[`${prefix}ScopedCascadeGraphHash`] ?? input.scopedCascadeGraphHash,
+    selectorTargetGraphHash: input[`${prefix}SelectorTargetGraphHash`] ?? input.selectorTargetGraphHash
   };
 }
 

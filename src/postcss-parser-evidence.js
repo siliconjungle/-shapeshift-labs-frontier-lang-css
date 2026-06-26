@@ -61,6 +61,7 @@ function postcssRuleRecord(node, scopes, sourceHash, options) {
     })),
     customProperties: declarations.filter((declaration) => declaration.property.startsWith('--')).map((declaration) => declaration.property),
     scopedCascadeGraphHash: scopes.length ? options.scopedCascadeGraphHash : undefined,
+    selectorTargetGraphHash: options.selectorTargetGraphHash,
     sourceSpan: sourceSpanFromPostcss(node.source, options.sourcePath),
     sourceHash,
     rawTextHash: hashSemanticValue({ kind: 'frontier.lang.css.rawRuleText.v1', text: node.toString() }),
