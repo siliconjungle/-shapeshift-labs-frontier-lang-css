@@ -235,9 +235,7 @@ export interface CssSemanticMergeEvidence {
 }
 
 export interface CssSafeMergeConflict {
-  readonly code: string;
-  readonly gateId: 'css-semantic-merge' | string;
-  readonly sourcePath?: string;
+  readonly code: string; readonly gateId: 'css-semantic-merge' | string; readonly sourcePath?: string;
   readonly details: Readonly<Record<string, unknown>> & { readonly reasonCode: string; readonly conflictKey: string };
 }
 
@@ -262,22 +260,20 @@ export interface CssSafeMergeResult {
 export interface CssSafeMergeParserEvidence {
   readonly kind: 'frontier.lang.cssSafeMergeParserEvidence'; readonly version: 1; readonly parserNames: readonly string[];
   readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
-  readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number;
-  readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number; readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
 }
 
 export interface CssSafeMergeParserSideEvidence {
-  readonly parserName: string;
-  readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
+  readonly parserName: string; readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
   readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number;
 }
 
 export interface CssSafeMergeSelectorTargetEvidence {
-  readonly kind: 'frontier.lang.cssSafeMergeSelectorTargetEvidence'; readonly version: 1;
-  readonly selectorTargetGraphHashPresent: boolean; readonly parserBackedRuleSpans: boolean;
+  readonly kind: 'frontier.lang.cssSafeMergeSelectorTargetEvidence'; readonly version: 1; readonly selectorTargetGraphHashPresent: boolean; readonly parserBackedRuleSpans: boolean;
   readonly selectorMoveCount: number; readonly workerSelectorMoves: number; readonly headSelectorMoves: number;
   readonly sides: Readonly<Record<string, CssSafeMergeSelectorTargetSideEvidence>>;
   readonly moves: Readonly<Record<'worker' | 'head', readonly CssSafeMergeSelectorMove[]>>;
+  readonly rebasedChangeCount?: number; readonly rebaseProofs?: readonly CssSafeMergeSelectorTargetRebaseProof[];
 }
 
 export interface CssSafeMergeSelectorTargetSideEvidence {
@@ -288,7 +284,15 @@ export interface CssSafeMergeSelectorTargetSideEvidence {
 export interface CssSafeMergeSelectorMove {
   readonly side: string; readonly property: string; readonly beforeRuleKey: string; readonly afterRuleKey: string;
   readonly beforeSelectors?: readonly string[]; readonly afterSelectors?: readonly string[]; readonly beforeScopes?: readonly string[]; readonly afterScopes?: readonly string[];
-  readonly declarationHash: string; readonly selectorTargetGraphHashPresent: boolean;
+  readonly declarationHash: string; readonly beforeSelectorTargetGraphHash?: string; readonly afterSelectorTargetGraphHash?: string; readonly selectorTargetGraphHashPresent: boolean;
+}
+
+export interface CssSafeMergeSelectorTargetRebaseProof {
+  readonly kind: 'css-selector-target-rebase'; readonly side: string; readonly fromRuleKey: string; readonly toRuleKey: string; readonly property: string; readonly cascadeKey: string;
+}
+
+export interface CssSelectorTargetEquivalence {
+  readonly fromRuleKey?: string; readonly toRuleKey?: string; readonly fromSelectors?: readonly string[]; readonly toSelectors?: readonly string[]; readonly graphHash?: string;
 }
 
 export interface CssSafeMergeInput {
@@ -296,7 +300,7 @@ export interface CssSafeMergeInput {
   readonly cssModule?: boolean; readonly cssModules?: boolean;
   readonly generatedClassNameMap?: Readonly<Record<string, string>>;
   readonly generatedClassNameMapHash?: string; readonly jsTsUseSiteGraphHash?: string; readonly cssModuleCompositionGraphHash?: string; readonly icssGraphHash?: string; readonly scopedCascadeGraphHash?: string;
-  readonly selectorTargetGraphHash?: string;
+  readonly selectorTargetGraphHash?: string; readonly selectorTargetEquivalences?: readonly CssSelectorTargetEquivalence[];
   readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
   readonly baseGeneratedClassNameMapHash?: string; readonly workerGeneratedClassNameMapHash?: string; readonly headGeneratedClassNameMapHash?: string;
   readonly baseJsTsUseSiteGraphHash?: string; readonly workerJsTsUseSiteGraphHash?: string; readonly headJsTsUseSiteGraphHash?: string;

@@ -46,24 +46,62 @@ function selectorTargetMoves(changes, side) {
       beforeScopes: deletion.before.scopes,
       afterScopes: addition.after.scopes,
       declarationHash: addition.after.declarationHash,
+      beforeSelectorTargetGraphHash: deletion.before.selectorTargetGraphHash,
+      afterSelectorTargetGraphHash: addition.after.selectorTargetGraphHash,
       selectorTargetGraphHashPresent: Boolean(deletion.before.selectorTargetGraphHash && addition.after.selectorTargetGraphHash)
     });
   }
   return moves;
 }
 
-function selectorTargetMoveConflicts(id, sourcePath, selectorTargetEvidence, changed) {
-  return [
-    ...selectorTargetMoveSideConflicts(id, sourcePath, selectorTargetEvidence.moves.worker, selectorTargetEvidence.moves.head, changed.head),
-    ...selectorTargetMoveSideConflicts(id, sourcePath, selectorTargetEvidence.moves.head, selectorTargetEvidence.moves.worker, changed.worker)
-  ];
+function planSelectorTargetRebase(id, sourcePath, selectorTargetEvidence, changed, options = {}) {
+  const planned = { worker: [...changed.worker], head: [...changed.head] };
+  const worker = selectorTargetMoveSidePlan(id, sourcePath, selectorTargetEvidence.moves.worker, selectorTargetEvidence.moves.head, planned.head, options);
+  const head = selectorTargetMoveSidePlan(id, sourcePath, selectorTargetEvidence.moves.head, selectorTargetEvidence.moves.worker, planned.worker, options);
+  return {
+    changed: planned,
+    conflicts: [...worker.conflicts, ...head.conflicts],
+    evidence: { ...selectorTargetEvidence, rebasedChangeCount: worker.rebaseProofs.length + head.rebaseProofs.length, rebaseProofs: [...worker.rebaseProofs, ...head.rebaseProofs] }
+  };
 }
 
-function selectorTargetMoveSideConflicts(id, sourcePath, moves, oppositeMoves, oppositeChanges) {
-  return moves.flatMap((move) => {
-    if (oppositeMoves.some((oppositeMove) => sameSelectorMove(move, oppositeMove))) return [];
-    return oppositeChanges.filter((change) => selectorMoveTouchesChange(move, change)).map((change) => conflict(id, sourcePath, change.key, move, change));
+function selectorTargetMoveSidePlan(id, sourcePath, moves, oppositeMoves, oppositeChanges, options) {
+  const conflicts = [];
+  const rebaseProofs = [];
+  for (const move of moves) {
+    if (oppositeMoves.some((oppositeMove) => sameSelectorMove(move, oppositeMove))) continue;
+    for (let index = 0; index < oppositeChanges.length; index += 1) {
+      const change = oppositeChanges[index];
+      if (!selectorMoveTouchesChange(move, change)) continue;
+      if (canRebaseChange(move, change, options)) {
+        const rebased = rebaseChangeToSelectorMove(change, move);
+        oppositeChanges[index] = rebased.change;
+        rebaseProofs.push(rebased.proof);
+      } else conflicts.push(conflict(id, sourcePath, change.key, move, change));
+    }
+  }
+  return { conflicts, rebaseProofs };
+}
+
+function canRebaseChange(move, change, options) {
+  return change.kind === 'add' && change.after && hasSelectorTargetEquivalence(move, options);
+}
+
+function hasSelectorTargetEquivalence(move, options) {
+  return (options.selectorTargetEquivalences ?? []).some((entry) => {
+    const ruleKeysMatch = entry.fromRuleKey === move.beforeRuleKey && entry.toRuleKey === move.afterRuleKey;
+    const selectorsMatch = selectorListKey(entry.fromSelectors) === selectorListKey(move.beforeSelectors) && selectorListKey(entry.toSelectors) === selectorListKey(move.afterSelectors);
+    const graphMatches = !entry.graphHash || entry.graphHash === move.beforeSelectorTargetGraphHash || entry.graphHash === move.afterSelectorTargetGraphHash;
+    return graphMatches && (ruleKeysMatch || selectorsMatch);
   });
+}
+
+function rebaseChangeToSelectorMove(change, move) {
+  const after = { ...change.after, ruleKey: move.afterRuleKey, selectors: move.afterSelectors, scopes: move.afterScopes ?? [], key: cascadeKey(move.afterScopes, move.afterSelectors, change.after.property), rebasedFromRuleKey: move.beforeRuleKey };
+  return {
+    change: { ...change, key: after.key, after },
+    proof: { kind: 'css-selector-target-rebase', side: change.side, fromRuleKey: move.beforeRuleKey, toRuleKey: move.afterRuleKey, property: change.after.property, cascadeKey: after.key }
+  };
 }
 
 function conflict(id, sourcePath, cascadeKey, selectorMove, change) {
@@ -94,6 +132,8 @@ function sameSelectorMove(left, right) {
   return left.property === right.property && left.beforeRuleKey === right.beforeRuleKey && left.afterRuleKey === right.afterRuleKey && left.declarationHash === right.declarationHash;
 }
 
+function cascadeKey(scopes = [], selectors = [], property) { return [...scopes, selectors.join(','), property].join('::'); }
+function selectorListKey(value = []) { return Array.isArray(value) ? value.join(',') : undefined; }
 function changeDetails(change) { return { kind: change.kind, property: (change.after ?? change.before)?.property, value: change.after?.value, important: change.after?.important }; }
 
-export { mergeSelectorTargetEvidence, selectorTargetMoveConflicts };
+export { mergeSelectorTargetEvidence, planSelectorTargetRebase };
