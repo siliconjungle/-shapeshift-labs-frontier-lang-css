@@ -273,40 +273,35 @@ export interface CssSafeMergeResult {
   readonly headChangedDeclarations?: number;
   readonly workerChangedCssModuleContracts?: number;
   readonly headChangedCssModuleContracts?: number;
+  readonly parserEvidence?: CssSafeMergeParserEvidence;
+}
+
+export interface CssSafeMergeParserEvidence {
+  readonly kind: 'frontier.lang.cssSafeMergeParserEvidence';
+  readonly version: 1;
+  readonly parserNames: readonly string[];
+  readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number;
+  readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
+}
+
+export interface CssSafeMergeParserSideEvidence {
+  readonly parserName: string;
+  readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number;
 }
 
 export interface CssSafeMergeInput {
-  readonly id?: string;
-  readonly sourcePath?: string;
-  readonly baseSourceText?: string;
-  readonly workerSourceText?: string;
-  readonly headSourceText?: string;
-  readonly cssModule?: boolean;
-  readonly cssModules?: boolean;
+  readonly id?: string; readonly sourcePath?: string; readonly baseSourceText?: string; readonly workerSourceText?: string; readonly headSourceText?: string;
+  readonly cssModule?: boolean; readonly cssModules?: boolean;
   readonly generatedClassNameMap?: Readonly<Record<string, string>>;
-  readonly generatedClassNameMapHash?: string;
-  readonly jsTsUseSiteGraphHash?: string;
-  readonly cssModuleCompositionGraphHash?: string;
-  readonly icssGraphHash?: string;
-  readonly scopedCascadeGraphHash?: string;
-  readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>;
-  readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>;
-  readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
-  readonly baseGeneratedClassNameMapHash?: string;
-  readonly workerGeneratedClassNameMapHash?: string;
-  readonly headGeneratedClassNameMapHash?: string;
-  readonly baseJsTsUseSiteGraphHash?: string;
-  readonly workerJsTsUseSiteGraphHash?: string;
-  readonly headJsTsUseSiteGraphHash?: string;
-  readonly baseCssModuleCompositionGraphHash?: string;
-  readonly workerCssModuleCompositionGraphHash?: string;
-  readonly headCssModuleCompositionGraphHash?: string;
-  readonly baseIcssGraphHash?: string;
-  readonly workerIcssGraphHash?: string;
-  readonly headIcssGraphHash?: string;
-  readonly baseScopedCascadeGraphHash?: string;
-  readonly workerScopedCascadeGraphHash?: string;
-  readonly headScopedCascadeGraphHash?: string;
+  readonly generatedClassNameMapHash?: string; readonly jsTsUseSiteGraphHash?: string; readonly cssModuleCompositionGraphHash?: string; readonly icssGraphHash?: string; readonly scopedCascadeGraphHash?: string;
+  readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
+  readonly baseGeneratedClassNameMapHash?: string; readonly workerGeneratedClassNameMapHash?: string; readonly headGeneratedClassNameMapHash?: string;
+  readonly baseJsTsUseSiteGraphHash?: string; readonly workerJsTsUseSiteGraphHash?: string; readonly headJsTsUseSiteGraphHash?: string;
+  readonly baseCssModuleCompositionGraphHash?: string; readonly workerCssModuleCompositionGraphHash?: string; readonly headCssModuleCompositionGraphHash?: string;
+  readonly baseIcssGraphHash?: string; readonly workerIcssGraphHash?: string; readonly headIcssGraphHash?: string;
+  readonly baseScopedCascadeGraphHash?: string; readonly workerScopedCascadeGraphHash?: string; readonly headScopedCascadeGraphHash?: string;
 }
 
 export declare function toCssAst(document: FrontierLangDocument, options?: CssProjectionOptions): CssAstStylesheet;

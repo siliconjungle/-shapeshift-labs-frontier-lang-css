@@ -30,7 +30,8 @@ function safeMergeCssSource(input = {}, context = {}) {
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const sourceShapeConflicts = unsupportedSourceShapeConflicts(id, sourcePath, sheets, changed, hash);
   const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts);
+  const parserEvidence = mergeParserEvidence(sheets);
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence });
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, changed.head), changed.worker);
   return merged(id, sourcePath, renderDeclarationIndex(mergedIndex), 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
@@ -39,7 +40,8 @@ function safeMergeCssSource(input = {}, context = {}) {
     workerChangedDeclarations: changed.worker.length,
     headChangedDeclarations: changed.head.length,
     workerChangedCssModuleContracts: moduleChanges.worker.length,
-    headChangedCssModuleContracts: moduleChanges.head.length
+    headChangedCssModuleContracts: moduleChanges.head.length,
+    parserEvidence
   });
 }
 
@@ -105,6 +107,38 @@ function parserErrorConflicts(id, sourcePath, sheets) {
   return Object.entries(sheets).flatMap(([side, sheet]) => (sheet.proofGaps ?? [])
     .filter((gap) => gap.code === 'css-parser-error')
     .map((gap) => conflict(id, sourcePath, 'css-parser-error-blocked', gap.code, { side, proofGap: gap })));
+}
+
+function mergeParserEvidence(sheets) {
+  const entries = Object.entries(sheets).map(([side, sheet]) => [side, sheetParserEvidence(sheet)]);
+  return {
+    kind: 'frontier.lang.cssSafeMergeParserEvidence',
+    version: 1,
+    parserNames: unique(entries.map(([, evidence]) => evidence.parserName)),
+    sourceCodeLocationInfo: entries.every(([, evidence]) => evidence.sourceCodeLocationInfo === true),
+    parserBackedSourceSpans: entries.every(([, evidence]) => evidence.parserBackedSourceSpans === true),
+    parserBackedDeclarationSpans: entries.every(([, evidence]) => evidence.parserBackedDeclarationSpans === true),
+    parserBackedTriviaHashes: entries.every(([, evidence]) => evidence.parserBackedTriviaHashes === true),
+    scopedCascadeGraphHashPresent: entries.every(([, evidence]) => evidence.scopedCascadeGraphHashPresent === true),
+    parseErrors: entries.reduce((sum, [, evidence]) => sum + evidence.parseErrors, 0),
+    sides: Object.fromEntries(entries)
+  };
+}
+
+function sheetParserEvidence(sheet) {
+  const records = sheet.records ?? [];
+  const declarations = records.flatMap((record) => record.declarations ?? []);
+  return {
+    parserName: sheet.parser?.name ?? 'unknown',
+    sourceCodeLocationInfo: sheet.parser?.sourceCodeLocationInfo === true,
+    parserBackedSourceSpans: records.some((record) => record.parser === 'postcss' && record.sourceSpan?.startOffset !== undefined),
+    parserBackedDeclarationSpans: declarations.some((declaration) => declaration.sourceSpan?.startOffset !== undefined),
+    parserBackedTriviaHashes: records.some((record) => record.parser === 'postcss' && typeof record.rawTextHash === 'string'),
+    scopedCascadeGraphHashPresent: records.every((record) => !(record.scopes?.length) || Boolean(record.scopedCascadeGraphHash)),
+    parseErrors: sheet.parser?.parseErrors?.length ?? 0,
+    recordCount: records.length,
+    declarationCount: declarations.length
+  };
 }
 
 function overlapDeclarationConflicts(id, sourcePath, workerChanges, headChanges) {
@@ -217,10 +251,11 @@ function merged(id, sourcePath, sourceText, operation, hash, extra = {}) {
   });
 }
 
-function blocked(id, sourcePath, reasonCode, conflicts = []) {
+function blocked(id, sourcePath, reasonCode, conflicts = [], extra = {}) {
   return result(id, sourcePath, 'blocked', {
     operation: 'blocked',
-    conflicts: conflicts.length ? conflicts : [conflict(id, sourcePath, reasonCode, reasonCode)]
+    conflicts: conflicts.length ? conflicts : [conflict(id, sourcePath, reasonCode, reasonCode)],
+    ...extra
   });
 }
 

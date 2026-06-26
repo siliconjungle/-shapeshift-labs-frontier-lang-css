@@ -31,3 +31,16 @@ const cssParserErrorMerge = safeMergeCssSource({
 });
 assert.equal(cssParserErrorMerge.status, 'blocked');
 assert.equal(cssParserErrorMerge.conflicts.some((conflict) => conflict.code === 'css-parser-error-blocked'), true);
+
+const cssMerged = safeMergeCssSource({
+  id: 'css_parser_evidence_result',
+  sourcePath: 'button.css',
+  baseSourceText: '.button { color: red; padding: 1rem; }\n',
+  workerSourceText: '.button { color: blue; padding: 1rem; }\n',
+  headSourceText: '.button { color: red; padding: 1rem; background-color: white; }\n'
+});
+assert.equal(cssMerged.parserEvidence.parserNames.includes('postcss'), true);
+assert.equal(cssMerged.parserEvidence.parserBackedSourceSpans, true);
+assert.equal(cssMerged.parserEvidence.parserBackedDeclarationSpans, true);
+assert.equal(cssMerged.parserEvidence.parserBackedTriviaHashes, true);
+assert.equal(cssMerged.parserEvidence.parseErrors, 0);
