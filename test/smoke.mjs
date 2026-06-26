@@ -95,6 +95,13 @@ const provenModuleEvidence = createCssSemanticMergeEvidence(moduleSource, {
   cssModuleCompositionGraphHash: 'hash_composition',
   icssGraphHash: 'hash_icss'
 });
+const incompleteModuleEvidence = createCssSemanticMergeEvidence(moduleSource, {
+  sourcePath: 'Button.module.css',
+  generatedClassNameMap: { root: 'Button_root__hash' },
+  jsTsUseSiteGraphHash: 'hash_use_sites',
+  cssModuleCompositionGraphHash: 'hash_composition',
+  icssGraphHash: 'hash_icss'
+});
 
 assert.equal(moduleSheet.cssModules.kind, 'frontier.lang.cssModuleEvidence');
 assert.equal(moduleSheet.cssModules.mode, 'css-modules');
@@ -122,6 +129,7 @@ assert.equal(moduleEvidence.cssModuleUseSiteEquivalenceClaim, false);
 assert.equal(provenModuleEvidence.cssModules.generatedClassNameMapHash.startsWith('fnv1a32:'), true);
 assert.equal(provenModuleEvidence.cssModules.proofGaps.length, 0);
 assert.equal(provenModuleEvidence.status, 'ready');
+assert.equal(incompleteModuleEvidence.proofGaps.some((gap) => gap.code === 'css-module-generated-class-map-incomplete'), true);
 
 const cssMergeBase = [
   '.button {',
@@ -191,3 +199,73 @@ const cssShorthandConflict = safeMergeCssSource({
 });
 assert.equal(cssShorthandConflict.status, 'blocked');
 assert.equal(cssShorthandConflict.conflicts.some((conflict) => conflict.code === 'css-shorthand-longhand-conflict'), true);
+
+const cssModuleMergeBase = [
+  '.root {',
+  '  color: red;',
+  '}',
+  ''
+].join('\n');
+const cssModuleMergeWorkerAddsExport = [
+  '.root {',
+  '  color: red;',
+  '}',
+  '.label {',
+  '  font-weight: 600;',
+  '}',
+  ''
+].join('\n');
+const cssModuleMergeHeadChangesStyle = [
+  '.root {',
+  '  color: blue;',
+  '}',
+  ''
+].join('\n');
+const cssModuleMissingProof = safeMergeCssSource({
+  id: 'css_module_missing_contract_proof',
+  sourcePath: 'Button.module.css',
+  baseSourceText: cssModuleMergeBase,
+  workerSourceText: cssModuleMergeWorkerAddsExport,
+  headSourceText: cssModuleMergeHeadChangesStyle
+});
+assert.equal(cssModuleMissingProof.status, 'blocked');
+assert.equal(cssModuleMissingProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-module-js-ts-use-site-graph-unproved'), true);
+
+const cssModuleContractMerge = safeMergeCssSource({
+  id: 'css_module_contract_merge',
+  sourcePath: 'Button.module.css',
+  baseSourceText: cssModuleMergeBase,
+  workerSourceText: cssModuleMergeWorkerAddsExport,
+  headSourceText: cssModuleMergeHeadChangesStyle,
+  generatedClassNameMap: { root: 'Button_root__hash', label: 'Button_label__hash' },
+  jsTsUseSiteGraphHash: 'hash_css_module_use_sites'
+});
+assert.equal(cssModuleContractMerge.status, 'merged');
+assert.equal(cssModuleContractMerge.workerChangedCssModuleContracts, 1);
+assert.match(cssModuleContractMerge.mergedSourceText, /\.label/);
+assert.match(cssModuleContractMerge.mergedSourceText, /color: blue/);
+
+const cssModuleCompositionMissingProof = safeMergeCssSource({
+  id: 'css_module_composition_missing_proof',
+  sourcePath: 'Button.module.css',
+  baseSourceText: '.root { color: red; }\n',
+  workerSourceText: '.root { color: red; composes: base from "./base.module.css"; }\n',
+  headSourceText: '.root { color: blue; }\n',
+  generatedClassNameMap: { root: 'Button_root__hash' },
+  jsTsUseSiteGraphHash: 'hash_css_module_use_sites'
+});
+assert.equal(cssModuleCompositionMissingProof.status, 'blocked');
+assert.equal(cssModuleCompositionMissingProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-module-composition-resolution-unproved'), true);
+
+const cssModuleCompositionMerge = safeMergeCssSource({
+  id: 'css_module_composition_merge',
+  sourcePath: 'Button.module.css',
+  baseSourceText: '.root { color: red; }\n',
+  workerSourceText: '.root { color: red; composes: base from "./base.module.css"; }\n',
+  headSourceText: '.root { color: blue; }\n',
+  generatedClassNameMap: { root: 'Button_root__hash' },
+  jsTsUseSiteGraphHash: 'hash_css_module_use_sites',
+  cssModuleCompositionGraphHash: 'hash_composition_graph'
+});
+assert.equal(cssModuleCompositionMerge.status, 'merged');
+assert.match(cssModuleCompositionMerge.mergedSourceText, /composes: base from "\.\/base\.module\.css"/);

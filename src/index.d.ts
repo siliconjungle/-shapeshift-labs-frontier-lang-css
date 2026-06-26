@@ -249,6 +249,8 @@ export interface CssSafeMergeResult {
   readonly headSheetHash?: string;
   readonly workerChangedDeclarations?: number;
   readonly headChangedDeclarations?: number;
+  readonly workerChangedCssModuleContracts?: number;
+  readonly headChangedCssModuleContracts?: number;
 }
 
 export interface CssSafeMergeInput {
@@ -257,6 +259,28 @@ export interface CssSafeMergeInput {
   readonly baseSourceText?: string;
   readonly workerSourceText?: string;
   readonly headSourceText?: string;
+  readonly cssModule?: boolean;
+  readonly cssModules?: boolean;
+  readonly generatedClassNameMap?: Readonly<Record<string, string>>;
+  readonly generatedClassNameMapHash?: string;
+  readonly jsTsUseSiteGraphHash?: string;
+  readonly cssModuleCompositionGraphHash?: string;
+  readonly icssGraphHash?: string;
+  readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>;
+  readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>;
+  readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
+  readonly baseGeneratedClassNameMapHash?: string;
+  readonly workerGeneratedClassNameMapHash?: string;
+  readonly headGeneratedClassNameMapHash?: string;
+  readonly baseJsTsUseSiteGraphHash?: string;
+  readonly workerJsTsUseSiteGraphHash?: string;
+  readonly headJsTsUseSiteGraphHash?: string;
+  readonly baseCssModuleCompositionGraphHash?: string;
+  readonly workerCssModuleCompositionGraphHash?: string;
+  readonly headCssModuleCompositionGraphHash?: string;
+  readonly baseIcssGraphHash?: string;
+  readonly workerIcssGraphHash?: string;
+  readonly headIcssGraphHash?: string;
 }
 
 export declare function toCssAst(document: FrontierLangDocument, options?: CssProjectionOptions): CssAstStylesheet;

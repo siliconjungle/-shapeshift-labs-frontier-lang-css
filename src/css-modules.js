@@ -41,6 +41,9 @@ function cssModuleProofGaps(exports, compositions, icssImports, icssExports, opt
   if (exports.length && !options.generatedClassNameMapHash && !options.generatedClassNameMap) {
     proofGaps.push(proofGap('css-module-generated-class-map-unproved', 'CSS Modules exported local classes need generated class-name map evidence from the bundler/runtime.'));
   }
+  if (exports.length && options.generatedClassNameMap && exports.some((entry) => !entry.generatedName)) {
+    proofGaps.push(proofGap('css-module-generated-class-map-incomplete', 'CSS Modules generated class-name map evidence must cover every exported local class.'));
+  }
   if (exports.length && !options.jsTsUseSiteGraphHash) {
     proofGaps.push(proofGap('css-module-js-ts-use-site-graph-unproved', 'CSS Modules exported classes need JS/TS/JSX import and member-use graph evidence.'));
   }

@@ -232,11 +232,11 @@ const merge = safeMergeCssSource({
 });
 ```
 
-`sourceMap.mappings` links emitted rule blocks back to Frontier Lang semantic node ids. `createCssSemanticMergeEvidence` records selectors, specificity, declarations, custom properties, cascade keys, source spans, stable hashes, and fail-closed proof gaps for cascade/render-sensitive CSS surfaces. `safeMergeCssSource` admits independent unscoped declaration edits by cascade key and blocks overlapping declaration changes or proof gaps.
+`sourceMap.mappings` links emitted rule blocks back to Frontier Lang semantic node ids. `createCssSemanticMergeEvidence` records selectors, specificity, declarations, custom properties, cascade keys, CSS Modules exports, ICSS edges, source spans, stable hashes, and fail-closed proof gaps for cascade/render-sensitive CSS surfaces. `safeMergeCssSource` admits independent unscoped declaration edits by cascade key, and for `.module.css` files it classifies exported local classes, `composes`, and ICSS import/export records as explicit merge contracts.
 
 ## Support Boundary
 
-- Ready evidence: style rules, selectors, specificity, declarations, custom properties, source spans, stable hashes.
-- Safe merge: independent unscoped declarations with non-overlapping cascade keys; output is a canonical CSS render and not a byte/trivia-preserving claim.
-- Review-only gaps: shorthands without longhand expansion, scoped cascade under `@media` / `@supports` / `@container` / `@layer`, `@keyframes`, `@font-face`, `@page`, browser layout and render equivalence.
+- Ready evidence: style rules, selectors, specificity, declarations, custom properties, CSS Modules local exports, generated class-name map coverage, JS/TS use-site graph hashes, composition graph hashes, ICSS graph hashes, source spans, stable hashes.
+- Safe merge: independent unscoped declarations with non-overlapping cascade keys; explicit CSS Modules export additions/deletions when generated class-name and JS/TS use-site graph proof is supplied; composition edits when composition graph proof is supplied; ICSS edits when ICSS graph proof is supplied. Output is a canonical CSS render and not a byte/trivia-preserving claim.
+- Review-only gaps: incomplete generated class-name maps, unproved CSS Modules use-site graphs, unproved composition or ICSS graphs, shorthands without longhand expansion, scoped cascade under `@media` / `@supports` / `@container` / `@layer`, `@keyframes`, `@font-face`, `@page`, browser layout and render equivalence.
 - Claims: `autoMergeClaim`, `semanticEquivalenceClaim`, `browserCascadeEquivalenceClaim`, and `browserRenderEquivalenceClaim` remain false.

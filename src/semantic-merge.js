@@ -1,3 +1,5 @@
+import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeConflicts } from './semantic-merge-css-modules.js';
+
 function safeMergeCssSource(input = {}, context = {}) {
   const parseSheet = context.parseCssSemanticSheet;
   const hash = context.hashSemanticValue;
@@ -11,21 +13,24 @@ function safeMergeCssSource(input = {}, context = {}) {
   if (worker === base) return merged(id, sourcePath, head, 'worker-unchanged', hash);
   if (head === base) return merged(id, sourcePath, worker, 'head-unchanged', hash);
   const sheets = {
-    base: parseSheet(base, { sourcePath }),
-    worker: parseSheet(worker, { sourcePath }),
-    head: parseSheet(head, { sourcePath })
+    base: parseSheet(base, sheetOptions(input, 'base', sourcePath)),
+    worker: parseSheet(worker, sheetOptions(input, 'worker', sourcePath)),
+    head: parseSheet(head, sheetOptions(input, 'head', sourcePath))
   };
   const indexes = Object.fromEntries(Object.entries(sheets).map(([name, sheet]) => [name, declarationIndex(sheet)]));
   const changed = {
     worker: changedDeclarations(indexes.base, indexes.worker, 'worker'),
     head: changedDeclarations(indexes.base, indexes.head, 'head')
   };
+  const moduleChanges = cssModuleContractChanges(sheets, hash);
   const proofConflicts = proofGapConflicts(id, sourcePath, changed, indexes);
   const overlapConflicts = [
     ...overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head),
     ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head)
   ];
-  const conflicts = [...proofConflicts, ...overlapConflicts];
+  const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
+  const sourceShapeConflicts = unsupportedSourceShapeConflicts(id, sourcePath, sheets, changed, hash);
+  const conflicts = [...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts];
   if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts);
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, changed.head), changed.worker);
   return merged(id, sourcePath, renderDeclarationIndex(mergedIndex), 'semantic-declaration-merge', hash, {
@@ -33,7 +38,9 @@ function safeMergeCssSource(input = {}, context = {}) {
     workerSheetHash: sheets.worker.sheetHash,
     headSheetHash: sheets.head.sheetHash,
     workerChangedDeclarations: changed.worker.length,
-    headChangedDeclarations: changed.head.length
+    headChangedDeclarations: changed.head.length,
+    workerChangedCssModuleContracts: moduleChanges.worker.length,
+    headChangedCssModuleContracts: moduleChanges.head.length
   });
 }
 
