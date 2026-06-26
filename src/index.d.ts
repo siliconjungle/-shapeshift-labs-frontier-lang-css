@@ -12,6 +12,7 @@ export interface CssProjectionOptions {
   readonly jsTsUseSiteGraphHash?: string;
   readonly cssModuleCompositionGraphHash?: string;
   readonly icssGraphHash?: string;
+  readonly scopedCascadeGraphHash?: string;
   readonly targetPath?: string;
   readonly semanticIndexId?: string;
   readonly sourceSpansBySemanticNodeId?: Readonly<Record<string, CssSourceSpan>>;
@@ -124,6 +125,7 @@ export interface CssSemanticRecord {
   readonly atRuleName?: string;
   readonly conditionText?: string;
   readonly scopeKey?: string;
+  readonly scopedCascadeGraphHash?: string;
   readonly sourceSpan: CssSourceSpan;
   readonly sourceHash: string;
   readonly ruleHash?: string;
@@ -266,6 +268,7 @@ export interface CssSafeMergeInput {
   readonly jsTsUseSiteGraphHash?: string;
   readonly cssModuleCompositionGraphHash?: string;
   readonly icssGraphHash?: string;
+  readonly scopedCascadeGraphHash?: string;
   readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>;
   readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>;
   readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
@@ -281,6 +284,9 @@ export interface CssSafeMergeInput {
   readonly baseIcssGraphHash?: string;
   readonly workerIcssGraphHash?: string;
   readonly headIcssGraphHash?: string;
+  readonly baseScopedCascadeGraphHash?: string;
+  readonly workerScopedCascadeGraphHash?: string;
+  readonly headScopedCascadeGraphHash?: string;
 }
 
 export declare function toCssAst(document: FrontierLangDocument, options?: CssProjectionOptions): CssAstStylesheet;

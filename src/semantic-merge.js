@@ -150,16 +150,31 @@ function renderDeclarationIndex(index) {
   const groups = new Map();
   for (const key of index.order) {
     const declaration = index.declarations.get(key);
-    if (!declaration || declaration.scopes.length) continue;
+    if (!declaration) continue;
     groups.set(declaration.ruleKey, [...(groups.get(declaration.ruleKey) ?? []), declaration]);
   }
   const chunks = [];
   for (const declarations of groups.values()) {
-    chunks.push(`${declarations[0].selectors.join(', ')} {`);
-    for (const declaration of declarations) chunks.push(`  ${declaration.property}: ${declaration.value};`);
-    chunks.push('}', '');
+    renderDeclarationGroup(chunks, declarations);
   }
   return `${chunks.join('\n').trimEnd()}\n`;
+}
+
+function renderDeclarationGroup(chunks, declarations) {
+  const first = declarations[0];
+  let indent = 0;
+  for (const scope of first.scopes) {
+    chunks.push(`${spaces(indent)}${scope} {`);
+    indent += 2;
+  }
+  chunks.push(`${spaces(indent)}${first.selectors.join(', ')} {`);
+  for (const declaration of declarations) chunks.push(`${spaces(indent + 2)}${declaration.property}: ${declaration.value};`);
+  chunks.push(`${spaces(indent)}}`);
+  for (let index = first.scopes.length - 1; index >= 0; index -= 1) {
+    indent -= 2;
+    chunks.push(`${spaces(indent)}}`);
+  }
+  chunks.push('');
 }
 
 function merged(id, sourcePath, sourceText, operation, hash, extra = {}) {
@@ -209,6 +224,7 @@ function proofGapsForDeclaration(record, declaration) {
   return (record.proofGaps ?? []).filter((gap) => gap.code !== 'css-shorthand-expansion-unproved' || gap.summary.includes(` ${declaration.property} `));
 }
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
+function spaces(count) { return ' '.repeat(Math.max(0, count)); }
 
 function shorthandGroupForProperty(property) {
   if (ShorthandGroups.has(property)) return property;

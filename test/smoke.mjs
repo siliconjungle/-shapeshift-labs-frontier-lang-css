@@ -70,6 +70,15 @@ assert.equal(evidence.semanticEquivalenceClaim, false);
 assert.equal(evidence.browserCascadeEquivalenceClaim, false);
 assert.equal(evidence.browserRenderEquivalenceClaim, false);
 
+const scopedSource = '@media (min-width: 700px) {\n  .todo { color: red; padding-left: 1rem; }\n}';
+const scopedWithoutProof = createCssSemanticMergeEvidence(scopedSource, { sourcePath: 'view.css' });
+const scopedWithProof = createCssSemanticMergeEvidence(scopedSource, { sourcePath: 'view.css', scopedCascadeGraphHash: 'hash_scoped_cascade' });
+assert.equal(scopedWithoutProof.proofGaps.some((gap) => gap.code === 'css-media-cascade-scope-unproved'), true);
+assert.equal(scopedWithoutProof.proofGaps.some((gap) => gap.code === 'css-scoped-cascade-equivalence-unproved'), true);
+assert.equal(scopedWithProof.proofGaps.some((gap) => gap.code === 'css-media-cascade-scope-unproved'), false);
+assert.equal(scopedWithProof.proofGaps.some((gap) => gap.code === 'css-scoped-cascade-equivalence-unproved'), false);
+assert.equal(scopedWithProof.status, 'ready');
+
 const tokenModulePath = ['.', '/', 'tokens.module.css'].join('');
 const baseModulePath = ['.', '/', 'base.module.css'].join('');
 const moduleSource = [
@@ -199,6 +208,32 @@ const cssShorthandConflict = safeMergeCssSource({
 });
 assert.equal(cssShorthandConflict.status, 'blocked');
 assert.equal(cssShorthandConflict.conflicts.some((conflict) => conflict.code === 'css-shorthand-longhand-conflict'), true);
+
+const cssScopedMergeBase = '@media (min-width: 700px) {\n  .button {\n    color: red;\n    padding-left: 1rem;\n  }\n}\n';
+const cssScopedMergeWorker = '@media (min-width: 700px) {\n  .button {\n    color: blue;\n    padding-left: 1rem;\n  }\n}\n';
+const cssScopedMergeHead = '@media (min-width: 700px) {\n  .button {\n    color: red;\n    padding-left: 1rem;\n    background-color: white;\n  }\n}\n';
+const cssScopedMergeMissingProof = safeMergeCssSource({
+  id: 'css_scoped_declaration_missing_proof',
+  sourcePath: 'button.css',
+  baseSourceText: cssScopedMergeBase,
+  workerSourceText: cssScopedMergeWorker,
+  headSourceText: cssScopedMergeHead
+});
+assert.equal(cssScopedMergeMissingProof.status, 'blocked');
+assert.equal(cssScopedMergeMissingProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-scoped-cascade-equivalence-unproved'), true);
+
+const cssScopedMerge = safeMergeCssSource({
+  id: 'css_scoped_declaration_proven',
+  sourcePath: 'button.css',
+  baseSourceText: cssScopedMergeBase,
+  workerSourceText: cssScopedMergeWorker,
+  headSourceText: cssScopedMergeHead,
+  scopedCascadeGraphHash: 'hash_scoped_cascade'
+});
+assert.equal(cssScopedMerge.status, 'merged');
+assert.match(cssScopedMerge.mergedSourceText, /@media \(min-width: 700px\) \{/);
+assert.match(cssScopedMerge.mergedSourceText, /color: blue/);
+assert.match(cssScopedMerge.mergedSourceText, /background-color: white/);
 
 const cssModuleMergeBase = [
   '.root {',

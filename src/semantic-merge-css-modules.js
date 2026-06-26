@@ -8,7 +8,8 @@ function sheetOptions(input, side, sourcePath) {
     generatedClassNameMapHash: input[`${prefix}GeneratedClassNameMapHash`] ?? input.generatedClassNameMapHash,
     jsTsUseSiteGraphHash: input[`${prefix}JsTsUseSiteGraphHash`] ?? input.jsTsUseSiteGraphHash,
     cssModuleCompositionGraphHash: input[`${prefix}CssModuleCompositionGraphHash`] ?? input.cssModuleCompositionGraphHash,
-    icssGraphHash: input[`${prefix}IcssGraphHash`] ?? input.icssGraphHash
+    icssGraphHash: input[`${prefix}IcssGraphHash`] ?? input.icssGraphHash,
+    scopedCascadeGraphHash: input[`${prefix}ScopedCascadeGraphHash`] ?? input.scopedCascadeGraphHash
   };
 }
 

@@ -59,7 +59,7 @@ export function emitCssWithSourceMap(document, options = {}) {
 export function parseCssSemanticSheet(sourceText, options = {}) {
   const lineStarts = computeLineStarts(sourceText);
   const sourceHash = options.sourceHash ?? hashSemanticValue({ kind: 'frontier.lang.css.source.v1', sourceText });
-  const records = parseCssBlocks(sourceText, 0, sourceText.length, [], lineStarts, sourceHash);
+  const records = parseCssBlocks(sourceText, 0, sourceText.length, [], lineStarts, sourceHash, options);
   const cssModules = createCssModuleEvidence(records, options, sourceHash);
   const proofGaps = [
     ...records.flatMap((record) => record.proofGaps ?? []),
@@ -112,7 +112,7 @@ export function safeMergeCssSource(input = {}) {
   return safeMergeCssSourceImpl(input, { parseCssSemanticSheet, hashSemanticValue });
 }
 
-function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash) {
+function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash, options) {
   const records = [];
   let index = start;
   while (index < end) {
@@ -124,23 +124,23 @@ function parseCssBlocks(sourceText, start, end, scopes, lineStarts, sourceHash) 
     const prelude = sourceText.slice(preludeStart, open).replace(/\/\*[\s\S]*?\*\//g, '').trim();
     const body = sourceText.slice(open + 1, close);
     if (prelude.startsWith('@')) {
-      const at = parseAtRule(prelude, preludeStart, close + 1, lineStarts, sourceHash, scopes);
+      const at = parseAtRule(prelude, preludeStart, close + 1, lineStarts, sourceHash, scopes, options);
       records.push(at);
-      if (ScopeAtRules.has(at.atRuleName)) records.push(...parseCssBlocks(sourceText, open + 1, close, [...scopes, at.scopeKey], lineStarts, sourceHash));
+      if (ScopeAtRules.has(at.atRuleName)) records.push(...parseCssBlocks(sourceText, open + 1, close, [...scopes, at.scopeKey], lineStarts, sourceHash, options));
     } else if (prelude) {
-      records.push(cssRuleRecord(prelude, body, preludeStart, close + 1, lineStarts, sourceHash, scopes));
+      records.push(cssRuleRecord(prelude, body, preludeStart, close + 1, lineStarts, sourceHash, scopes, options));
     }
     index = close + 1;
   }
   return records;
 }
 
-function cssRuleRecord(prelude, body, start, end, lineStarts, sourceHash, scopes) {
+function cssRuleRecord(prelude, body, start, end, lineStarts, sourceHash, scopes, options) {
   const selectors = prelude.split(',').map((selector) => selector.trim()).filter(Boolean);
   const declarations = parseDeclarations(body);
   const proofGaps = [
     ...declarations.filter((declaration) => ShorthandProperties.has(declaration.property)).map((declaration) => proofGap('css-shorthand-expansion-unproved', `CSS shorthand ${declaration.property} needs longhand expansion evidence.`)),
-    ...scopes.length ? [proofGap('css-scoped-cascade-equivalence-unproved', 'Scoped cascade equivalence requires browser/style evidence.')] : []
+    ...scopes.length && !options.scopedCascadeGraphHash ? [proofGap('css-scoped-cascade-equivalence-unproved', 'Scoped cascade equivalence requires browser/style evidence.')] : []
   ];
   return compactRecord({
     kind: 'rule',
@@ -155,6 +155,7 @@ function cssRuleRecord(prelude, body, start, end, lineStarts, sourceHash, scopes
       declarationHash: hashSemanticValue({ kind: 'frontier.lang.css.declaration.v1', scopes, selectors, declaration })
     })),
     customProperties: declarations.filter((declaration) => declaration.property.startsWith('--')).map((declaration) => declaration.property),
+    scopedCascadeGraphHash: scopes.length ? options.scopedCascadeGraphHash : undefined,
     sourceSpan: sourceSpan(start, end, lineStarts),
     sourceHash,
     ruleHash: hashSemanticValue({ kind: 'frontier.lang.css.rule.v1', selectors, scopes, declarations }),
@@ -162,19 +163,20 @@ function cssRuleRecord(prelude, body, start, end, lineStarts, sourceHash, scopes
   });
 }
 
-function parseAtRule(prelude, start, end, lineStarts, sourceHash, scopes) {
+function parseAtRule(prelude, start, end, lineStarts, sourceHash, scopes, options) {
   const match = /^@([A-Za-z-]+)\s*([\s\S]*)$/.exec(prelude);
   const atRuleName = match?.[1]?.toLowerCase() ?? 'unknown';
   const conditionText = match?.[2]?.trim() ?? '';
   const proofGaps = [];
   if (RuntimeAtRules.has(atRuleName)) proofGaps.push(proofGap(`css-${atRuleName}-runtime-equivalence-unproved`, `CSS @${atRuleName} semantics require browser evidence.`));
-  if (ScopeAtRules.has(atRuleName)) proofGaps.push(proofGap(`css-${atRuleName}-cascade-scope-unproved`, `CSS @${atRuleName} scoped cascade requires condition evaluation evidence.`));
+  if (ScopeAtRules.has(atRuleName) && !options.scopedCascadeGraphHash) proofGaps.push(proofGap(`css-${atRuleName}-cascade-scope-unproved`, `CSS @${atRuleName} scoped cascade requires condition evaluation evidence.`));
   return compactRecord({
     kind: 'at-rule',
     atRuleName,
     conditionText,
     scopeKey: `@${atRuleName} ${conditionText}`.trim(),
     scopes,
+    scopedCascadeGraphHash: ScopeAtRules.has(atRuleName) ? options.scopedCascadeGraphHash : undefined,
     sourceSpan: sourceSpan(start, end, lineStarts),
     sourceHash,
     atRuleHash: hashSemanticValue({ kind: 'frontier.lang.css.atRule.v1', atRuleName, conditionText, scopes }),
