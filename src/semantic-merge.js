@@ -21,7 +21,10 @@ function safeMergeCssSource(input = {}, context = {}) {
     head: changedDeclarations(indexes.base, indexes.head, 'head')
   };
   const proofConflicts = proofGapConflicts(id, sourcePath, changed, indexes);
-  const overlapConflicts = overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head);
+  const overlapConflicts = [
+    ...overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head),
+    ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head)
+  ];
   const conflicts = [...proofConflicts, ...overlapConflicts];
   if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts);
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, changed.head), changed.worker);
@@ -73,7 +76,9 @@ function proofGapConflicts(id, sourcePath, changed, indexes) {
   const changedKeys = new Set([...changed.worker, ...changed.head].map((change) => change.key));
   return [...changedKeys].flatMap((key) => {
     const entry = indexes.worker.declarations.get(key) ?? indexes.head.declarations.get(key);
-    return (entry?.proofGaps ?? []).map((gap) => conflict(id, sourcePath, 'css-proof-gap-blocked', gap.code, {
+    return (entry?.proofGaps ?? [])
+      .filter((gap) => !canAdmitProofGap(gap, entry, changed, indexes))
+      .map((gap) => conflict(id, sourcePath, 'css-proof-gap-blocked', gap.code, {
       cascadeKey: key,
       proofGap: gap
     }));
@@ -91,6 +96,34 @@ function overlapDeclarationConflicts(id, sourcePath, workerChanges, headChanges)
       head: changeDetails(headChange)
     })];
   });
+}
+
+function shorthandOverlapConflicts(id, sourcePath, workerChanges, headChanges) {
+  return workerChanges.flatMap((workerChange) => headChanges
+    .filter((headChange) => workerChange.key !== headChange.key && declarationsOverlapByShorthandGroup(workerChange.after ?? workerChange.before, headChange.after ?? headChange.before))
+    .map((headChange) => conflict(id, sourcePath, 'css-shorthand-longhand-conflict', 'css-shorthand-longhand-conflict', {
+      worker: changeDetails(workerChange),
+      head: changeDetails(headChange)
+    })));
+}
+
+function canAdmitProofGap(gap, entry, changed, indexes) {
+  if (gap.code !== 'css-shorthand-expansion-unproved' || !entry) return false;
+  const group = shorthandGroupForProperty(entry.property);
+  if (!group || hasRelatedExistingDeclaration(entry, indexes)) return false;
+  const oppositeChanges = [...changed.worker, ...changed.head].filter((change) => change.key !== entry.key);
+  return !oppositeChanges.some((change) => declarationsOverlapByShorthandGroup(entry, change.after ?? change.before));
+}
+
+function hasRelatedExistingDeclaration(entry, indexes) {
+  return Object.values(indexes).some((index) => [...index.declarations.values()].some((candidate) => candidate.key !== entry.key && declarationsOverlapByShorthandGroup(entry, candidate)));
+}
+
+function declarationsOverlapByShorthandGroup(left, right) {
+  if (!left || !right || left.ruleKey !== right.ruleKey) return false;
+  const leftGroup = shorthandGroupForProperty(left.property);
+  const rightGroup = shorthandGroupForProperty(right.property);
+  return Boolean(leftGroup && rightGroup && leftGroup === rightGroup);
 }
 
 function applyDeclarationChanges(index, changes) {
@@ -169,5 +202,20 @@ function proofGapsForDeclaration(record, declaration) {
   return (record.proofGaps ?? []).filter((gap) => gap.code !== 'css-shorthand-expansion-unproved' || gap.summary.includes(` ${declaration.property} `));
 }
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
+
+function shorthandGroupForProperty(property) {
+  if (ShorthandGroups.has(property)) return property;
+  for (const [group, longhands] of ShorthandGroups) if (longhands.includes(property)) return group;
+  return undefined;
+}
+
+const ShorthandGroups = new Map([
+  ['background', ['background-attachment', 'background-clip', 'background-color', 'background-image', 'background-origin', 'background-position', 'background-repeat', 'background-size']],
+  ['border', ['border-color', 'border-style', 'border-width', 'border-top', 'border-right', 'border-bottom', 'border-left']],
+  ['font', ['font-family', 'font-size', 'font-stretch', 'font-style', 'font-variant', 'font-weight', 'line-height']],
+  ['list-style', ['list-style-image', 'list-style-position', 'list-style-type']],
+  ['margin', ['margin-top', 'margin-right', 'margin-bottom', 'margin-left']],
+  ['padding', ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']]
+]);
 
 export { safeMergeCssSource };

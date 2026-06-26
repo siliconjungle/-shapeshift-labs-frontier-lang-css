@@ -170,3 +170,24 @@ const cssMergeConflict = safeMergeCssSource({
 assert.equal(cssMergeConflict.status, 'blocked');
 assert.equal(cssMergeConflict.conflicts.some((conflict) => conflict.code === 'css-cascade-declaration-conflict'), true);
 assert.equal(cssMergeConflict.admission.reasonCodes.includes('css-cascade-declaration-conflict'), true);
+
+const cssShorthandMerge = safeMergeCssSource({
+  id: 'css_independent_known_shorthand',
+  sourcePath: 'button.css',
+  baseSourceText: '.button { color: red; padding: 1rem; }\n',
+  workerSourceText: '.button { color: blue; padding: 1rem; }\n',
+  headSourceText: '.button { color: red; padding: 1rem; background: white; }\n'
+});
+assert.equal(cssShorthandMerge.status, 'merged');
+assert.match(cssShorthandMerge.mergedSourceText, /background: white/);
+assert.match(cssShorthandMerge.mergedSourceText, /color: blue/);
+
+const cssShorthandConflict = safeMergeCssSource({
+  id: 'css_shorthand_longhand_conflict',
+  sourcePath: 'button.css',
+  baseSourceText: '.button { color: red; }\n',
+  workerSourceText: '.button { color: red; background: white; }\n',
+  headSourceText: '.button { color: red; background-color: black; }\n'
+});
+assert.equal(cssShorthandConflict.status, 'blocked');
+assert.equal(cssShorthandConflict.conflicts.some((conflict) => conflict.code === 'css-shorthand-longhand-conflict'), true);
