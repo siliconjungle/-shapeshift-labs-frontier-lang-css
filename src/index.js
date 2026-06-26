@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { createCssModuleEvidence } from './css-modules.js';
+import { parsePostcssSemanticRecords } from './postcss-parser-evidence.js';
 import { safeMergeCssSource as safeMergeCssSourceImpl } from './semantic-merge.js';
 
 const ShorthandProperties = new Set(['all', 'animation', 'background', 'border', 'border-block', 'border-color', 'border-image', 'border-inline', 'border-radius', 'border-style', 'border-width', 'columns', 'flex', 'font', 'gap', 'grid', 'grid-area', 'grid-column', 'grid-row', 'inset', 'list-style', 'margin', 'offset', 'outline', 'overflow', 'padding', 'place-content', 'place-items', 'place-self', 'text-decoration', 'transition']);
@@ -57,11 +58,12 @@ export function emitCssWithSourceMap(document, options = {}) {
 }
 
 export function parseCssSemanticSheet(sourceText, options = {}) {
-  const lineStarts = computeLineStarts(sourceText);
   const sourceHash = options.sourceHash ?? hashSemanticValue({ kind: 'frontier.lang.css.source.v1', sourceText });
-  const records = parseCssBlocks(sourceText, 0, sourceText.length, [], lineStarts, sourceHash, options);
+  const parsed = parsePostcssSemanticRecords(sourceText, sourceHash, options);
+  const records = parsed.records;
   const cssModules = createCssModuleEvidence(records, options, sourceHash);
   const proofGaps = [
+    ...parsed.proofGaps,
     ...records.flatMap((record) => record.proofGaps ?? []),
     ...(cssModules?.proofGaps ?? [])
   ];
@@ -81,9 +83,11 @@ export function parseCssSemanticSheet(sourceText, options = {}) {
       cssModuleCompositions: cssModules?.compositions.length ?? 0,
       icssImports: cssModules?.icssImports.length ?? 0,
       icssExports: cssModules?.icssExports.length ?? 0,
-      proofGaps: proofGaps.length
+      proofGaps: proofGaps.length,
+      parseErrors: parsed.parser.parseErrors.length
     },
-    proofGaps
+    proofGaps,
+    parser: parsed.parser
   };
 }
 

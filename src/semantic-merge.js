@@ -22,13 +22,14 @@ function safeMergeCssSource(input = {}, context = {}) {
   };
   const moduleChanges = cssModuleContractChanges(sheets, hash);
   const proofConflicts = proofGapConflicts(id, sourcePath, changed, indexes);
+  const parserConflicts = parserErrorConflicts(id, sourcePath, sheets);
   const overlapConflicts = [
     ...overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head),
     ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head)
   ];
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const sourceShapeConflicts = unsupportedSourceShapeConflicts(id, sourcePath, sheets, changed, hash);
-  const conflicts = [...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts];
+  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...sourceShapeConflicts];
   if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts);
   const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, changed.head), changed.worker);
   return merged(id, sourcePath, renderDeclarationIndex(mergedIndex), 'semantic-declaration-merge', hash, {
@@ -98,6 +99,12 @@ function proofGapConflicts(id, sourcePath, changed, indexes) {
       proofGap: gap
     }));
   });
+}
+
+function parserErrorConflicts(id, sourcePath, sheets) {
+  return Object.entries(sheets).flatMap(([side, sheet]) => (sheet.proofGaps ?? [])
+    .filter((gap) => gap.code === 'css-parser-error')
+    .map((gap) => conflict(id, sourcePath, 'css-parser-error-blocked', gap.code, { side, proofGap: gap })));
 }
 
 function overlapDeclarationConflicts(id, sourcePath, workerChanges, headChanges) {

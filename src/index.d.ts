@@ -36,6 +36,20 @@ export interface CssSourceSpan {
   readonly endColumn: number;
 }
 
+export interface CssParserDiagnostic {
+  readonly reason?: string;
+  readonly line?: number;
+  readonly column?: number;
+  readonly input?: string;
+  readonly [key: string]: unknown;
+}
+
+export interface CssParserEvidence {
+  readonly name: 'postcss' | string;
+  readonly sourceCodeLocationInfo: boolean;
+  readonly parseErrors: readonly CssParserDiagnostic[];
+}
+
 export interface CssSourceRef {
   readonly semanticNodeId: string;
   readonly semanticNodeKind?: string;
@@ -109,6 +123,8 @@ export interface CssSemanticDeclaration {
   readonly value: string;
   readonly important: boolean;
   readonly valueHash: string;
+  readonly sourceSpan?: CssSourceSpan;
+  readonly rawTextHash?: string;
   readonly ordinal: number;
   readonly cascadeKey: string;
   readonly declarationHash: string;
@@ -129,6 +145,8 @@ export interface CssSemanticRecord {
   readonly scopedCascadeGraphHash?: string;
   readonly sourceSpan: CssSourceSpan;
   readonly sourceHash: string;
+  readonly parser?: 'postcss' | string;
+  readonly rawTextHash?: string;
   readonly ruleHash?: string;
   readonly atRuleHash?: string;
   readonly proofGaps?: readonly CssSemanticProofGap[];
@@ -200,6 +218,7 @@ export interface CssSemanticSheet {
   readonly sheetHash: string;
   readonly summary: Readonly<Record<string, number>>;
   readonly proofGaps: readonly CssSemanticProofGap[];
+  readonly parser: CssParserEvidence;
 }
 
 export interface CssSemanticMergeEvidence {
