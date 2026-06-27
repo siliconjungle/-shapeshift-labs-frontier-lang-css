@@ -10,7 +10,13 @@ export function createCssModuleEvidence(records, options, sourceHash) {
   const compositions = cssModuleCompositions(rules);
   const icssImports = cssModuleIcssImports(rules);
   const icssExports = cssModuleIcssExports(rules);
-  const proofGaps = cssModuleProofGaps(exports, compositions, icssImports, icssExports, options);
+  const cssModuleCompositionGraphHash = options.cssModuleCompositionGraphHash ?? localCompositionGraphHash(compositions, sourceHash);
+  const icssGraphHash = options.icssGraphHash ?? exportOnlyIcssGraphHash(icssImports, icssExports, sourceHash);
+  const proofGaps = cssModuleProofGaps(exports, compositions, icssImports, icssExports, {
+    ...options,
+    cssModuleCompositionGraphHash,
+    icssGraphHash
+  });
   const moduleHash = hashSemanticValue({
     kind: 'frontier.lang.css.modules.v1',
     exports: exports.map((entry) => ({ name: entry.name, selectors: entry.selectors })),
@@ -30,8 +36,10 @@ export function createCssModuleEvidence(records, options, sourceHash) {
     icssExports,
     generatedClassNameMapHash: options.generatedClassNameMapHash ?? generatedClassNameMapHash(options.generatedClassNameMap),
     jsTsUseSiteGraphHash: options.jsTsUseSiteGraphHash,
-    cssModuleCompositionGraphHash: options.cssModuleCompositionGraphHash,
-    icssGraphHash: options.icssGraphHash,
+    cssModuleCompositionGraphHash,
+    cssModuleCompositionGraphSource: cssModuleCompositionGraphHash ? (options.cssModuleCompositionGraphHash ? 'supplied' : 'source-local') : undefined,
+    icssGraphHash,
+    icssGraphSource: icssGraphHash ? (options.icssGraphHash ? 'supplied' : 'source-export-only') : undefined,
     proofGaps
   };
 }
@@ -201,6 +209,35 @@ function icssImportSource(rule) {
 
 function generatedClassNameMapHash(generatedClassNameMap) {
   return generatedClassNameMap ? hashSemanticValue({ kind: 'frontier.lang.css.modules.generatedClassNameMap.v1', generatedClassNameMap }) : undefined;
+}
+
+function localCompositionGraphHash(compositions, sourceHash) {
+  if (!compositions.length) return undefined;
+  if (compositions.some((entry) => entry.sourceKind === 'file')) return undefined;
+  return hashSemanticValue({
+    kind: 'frontier.lang.css.modules.localCompositionGraph.v1',
+    sourceHash,
+    compositions: compositions.map((entry) => ({
+      localName: entry.localName,
+      names: entry.names,
+      sourceKind: entry.sourceKind,
+      compositionHash: entry.compositionHash
+    }))
+  });
+}
+
+function exportOnlyIcssGraphHash(icssImports, icssExports, sourceHash) {
+  if (!icssExports.length) return undefined;
+  if (icssImports.length) return undefined;
+  return hashSemanticValue({
+    kind: 'frontier.lang.css.modules.exportOnlyIcssGraph.v1',
+    sourceHash,
+    exports: icssExports.map((entry) => ({
+      name: entry.name,
+      value: entry.value,
+      exportHash: entry.exportHash
+    }))
+  });
 }
 
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }

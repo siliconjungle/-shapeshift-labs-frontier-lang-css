@@ -34,6 +34,21 @@ const incompleteModuleEvidence = createCssSemanticMergeEvidence(moduleSource, {
   cssModuleCompositionGraphHash: 'hash_composition',
   icssGraphHash: 'hash_icss'
 });
+const localModuleSource = [
+  '.base { display: block; }',
+  '.root {',
+  '  composes: base;',
+  '  color: red;',
+  '}',
+  ':export {',
+  '  primaryColor: red;',
+  '}'
+].join('\n');
+const localModuleEvidence = createCssSemanticMergeEvidence(localModuleSource, {
+  sourcePath: 'Local.module.css',
+  generatedClassNameMap: { base: 'Local_base__hash', root: 'Local_root__hash' },
+  jsTsUseSiteGraphHash: 'hash_local_use_sites'
+});
 
 assert.equal(moduleSheet.cssModules.kind, 'frontier.lang.cssModuleEvidence');
 assert.equal(moduleSheet.cssModules.mode, 'css-modules');
@@ -62,6 +77,13 @@ assert.equal(provenModuleEvidence.cssModules.generatedClassNameMapHash.startsWit
 assert.equal(provenModuleEvidence.cssModules.proofGaps.length, 0);
 assert.equal(provenModuleEvidence.status, 'ready');
 assert.equal(incompleteModuleEvidence.proofGaps.some((gap) => gap.code === 'css-module-generated-class-map-incomplete'), true);
+assert.equal(localModuleEvidence.cssModules.cssModuleCompositionGraphHash.startsWith('fnv1a32:'), true);
+assert.equal(localModuleEvidence.cssModules.cssModuleCompositionGraphSource, 'source-local');
+assert.equal(localModuleEvidence.cssModules.icssGraphHash.startsWith('fnv1a32:'), true);
+assert.equal(localModuleEvidence.cssModules.icssGraphSource, 'source-export-only');
+assert.equal(localModuleEvidence.proofGaps.some((gap) => gap.code === 'css-module-composition-resolution-unproved'), false);
+assert.equal(localModuleEvidence.proofGaps.some((gap) => gap.code === 'css-module-icss-graph-unproved'), false);
+assert.equal(localModuleEvidence.status, 'ready');
 
 const cssModuleMergeBase = [
   '.root {',

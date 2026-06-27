@@ -201,7 +201,9 @@ export interface CssModuleEvidence {
   readonly generatedClassNameMapHash?: string;
   readonly jsTsUseSiteGraphHash?: string;
   readonly cssModuleCompositionGraphHash?: string;
+  readonly cssModuleCompositionGraphSource?: 'supplied' | 'source-local';
   readonly icssGraphHash?: string;
+  readonly icssGraphSource?: 'supplied' | 'source-export-only';
   readonly proofGaps: readonly CssSemanticProofGap[];
 }
 
