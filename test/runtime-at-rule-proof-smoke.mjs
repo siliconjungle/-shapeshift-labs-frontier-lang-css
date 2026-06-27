@@ -14,6 +14,8 @@ const propertyUnproved = safeMergeCssSource({
   headSourceText: propertyHead
 });
 assert.equal(propertyUnproved.status, 'blocked');
+assert.equal(propertyUnproved.dependencyGraphEvidence.propertyRegistrations, 1);
+assert.equal(propertyUnproved.dependencyGraphEvidence.propertyRegistrationDescriptors, 3);
 assert.equal(propertyUnproved.conflicts.some((item) => item.details.reasonCode === 'css-property-runtime-equivalence-unproved'), true);
 
 const propertyProven = safeMergeCssSource({
@@ -48,6 +50,7 @@ const pageUnproved = safeMergeCssSource({
   headSourceText: pageHead
 });
 assert.equal(pageUnproved.status, 'blocked');
+assert.equal(pageUnproved.dependencyGraphEvidence.pageDescriptors, 1);
 assert.equal(pageUnproved.conflicts.some((item) => item.details.reasonCode === 'css-page-runtime-equivalence-unproved'), true);
 
 const pageProven = safeMergeCssSource({

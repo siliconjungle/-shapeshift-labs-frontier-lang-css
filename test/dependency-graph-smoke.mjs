@@ -44,6 +44,36 @@ assert.equal(sheet.summary.dependencySurfaceCount, graph.dependencySurfaceCount)
 assert.equal(sheet.summary.customPropertyReferences, 2);
 assert.equal(sheet.summary.urlAssetReferences, 3);
 
+const descriptorSource = [
+  '@property --brand-hue {',
+  '  syntax: "<number>";',
+  '  inherits: false;',
+  '  initial-value: 210;',
+  '}',
+  '@page :first {',
+  '  margin: 1cm;',
+  '  size: A4;',
+  '  @top-left { content: "Draft"; }',
+  '}',
+  ''
+].join('\n');
+const descriptorSheet = parseCssSemanticSheet(descriptorSource, { sourcePath: 'runtime.css' });
+const descriptorGraph = descriptorSheet.dependencyGraphEvidence;
+assert.equal(descriptorGraph.hasDependencySurface, true);
+assert.equal(descriptorGraph.propertyRegistrations, 1);
+assert.equal(descriptorGraph.propertyRegistrationDescriptors, 3);
+assert.equal(descriptorGraph.pageDescriptors, 2);
+assert.equal(descriptorGraph.pageMarginDescriptors, 1);
+assert.equal(descriptorSheet.summary.propertyRegistrations, 1);
+assert.equal(descriptorSheet.summary.pageDescriptors, 2);
+assert.equal(descriptorGraph.records.propertyRegistrations[0].name, '--brand-hue');
+assert.equal(descriptorGraph.records.propertyRegistrations[0].syntax, '"<number>"');
+assert.equal(descriptorGraph.records.propertyRegistrationDescriptors.some((entry) => entry.descriptorName === 'initial-value' && entry.value === '210'), true);
+assert.equal(descriptorGraph.records.pageDescriptors.some((entry) => entry.pageSelector === ':first' && entry.property === 'size' && entry.value === 'A4'), true);
+assert.equal(descriptorGraph.records.pageMarginDescriptors.some((entry) => entry.marginBox === '@top-left' && entry.property === 'content'), true);
+assert.equal(descriptorGraph.semanticEquivalenceClaim, false);
+assert.equal(descriptorGraph.browserRenderEquivalenceClaim, false);
+
 const evidence = createCssSemanticMergeEvidence(dependencySource, { sourcePath: 'spinner.css' });
 assert.equal(evidence.dependencyGraphEvidence.dependencyGraphHash, graph.dependencyGraphHash);
 assert.equal(evidence.browserCascadeEquivalenceClaim, false);

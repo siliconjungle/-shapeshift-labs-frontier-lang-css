@@ -11,6 +11,9 @@ export interface CssDependencyGraphRecord {
   readonly hasFallback?: boolean;
   readonly fallbackHash?: string;
   readonly targetDefined?: boolean;
+  readonly descriptorName?: string; readonly descriptorCount?: number; readonly descriptorHash?: string;
+  readonly value?: string; readonly valueHash?: string; readonly syntax?: string; readonly inherits?: string; readonly initialValue?: string;
+  readonly pageSelector?: string; readonly marginBox?: string;
   readonly declarationHash?: string;
   readonly ruleHash?: string;
   readonly atRuleHash?: string;
@@ -28,6 +31,10 @@ export interface CssDependencyGraphRecordSets {
   readonly fontFaces?: readonly CssDependencyGraphRecord[];
   readonly fontFaceLinks?: readonly CssDependencyGraphRecord[];
   readonly urlAssetReferences?: readonly CssDependencyGraphRecord[];
+  readonly propertyRegistrations?: readonly CssDependencyGraphRecord[];
+  readonly propertyRegistrationDescriptors?: readonly CssDependencyGraphRecord[];
+  readonly pageDescriptors?: readonly CssDependencyGraphRecord[];
+  readonly pageMarginDescriptors?: readonly CssDependencyGraphRecord[];
 }
 
 export interface CssDependencyGraphChange {
@@ -62,6 +69,10 @@ export interface CssDependencyGraphEvidence {
   readonly fontFaceDefinitions?: number;
   readonly fontFaceLinks?: number;
   readonly urlAssetReferences?: number;
+  readonly propertyRegistrations?: number;
+  readonly propertyRegistrationDescriptors?: number;
+  readonly pageDescriptors?: number;
+  readonly pageMarginDescriptors?: number;
   readonly records?: CssDependencyGraphRecordSets;
   readonly sides?: Readonly<Record<string, CssDependencyGraphEvidence>>;
   readonly browserCascadeEquivalenceClaim?: false;

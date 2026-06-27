@@ -1,3 +1,5 @@
+import { cssRuntimeDescriptorGraph } from './runtime-descriptor-evidence.js';
+
 function createCssDependencyGraphEvidence(records = [], options = {}) {
   const hash = options.hashSemanticValue;
   const definitions = [];
@@ -7,6 +9,7 @@ function createCssDependencyGraphEvidence(records = [], options = {}) {
   const fontFaces = [];
   const fonts = [];
   const assets = [];
+  const descriptors = cssRuntimeDescriptorGraph(records);
   for (const record of records) {
     if (record.kind === 'at-rule' && record.atRuleName === 'keyframes') keyframes.push(keyframeDefinition(record));
     if (record.kind === 'at-rule' && record.atRuleName === 'font-face') {
@@ -29,7 +32,7 @@ function createCssDependencyGraphEvidence(records = [], options = {}) {
   const fontNames = new Set(fontFaces.map((entry) => entry.family));
   const linkedAnimations = animations.map((entry) => ({ ...entry, targetDefined: keyframeNames.has(entry.name) }));
   const linkedFonts = fonts.map((entry) => ({ ...entry, targetDefined: fontNames.has(entry.family) }));
-  const dependencySurfaceCount = definitions.length + references.length + linkedAnimations.length + keyframes.length + fontFaces.length + linkedFonts.length + assets.length;
+  const dependencySurfaceCount = definitions.length + references.length + linkedAnimations.length + keyframes.length + fontFaces.length + linkedFonts.length + assets.length + descriptors.count;
   const graphHash = dependencySurfaceCount ? hash?.({
     kind: 'frontier.lang.css.dependencyGraph.v1',
     definitions,
@@ -38,7 +41,11 @@ function createCssDependencyGraphEvidence(records = [], options = {}) {
     keyframes,
     fontFaces,
     fonts: linkedFonts,
-    assets
+    assets,
+    propertyRegistrations: descriptors.propertyRegistrations,
+    propertyRegistrationDescriptors: descriptors.propertyRegistrationDescriptors,
+    pageDescriptors: descriptors.pageDescriptors,
+    pageMarginDescriptors: descriptors.pageMarginDescriptors
   }) : undefined;
   return compactRecord({
     kind: 'frontier.lang.cssDependencyGraphEvidence',
@@ -61,7 +68,11 @@ function createCssDependencyGraphEvidence(records = [], options = {}) {
     fontFaceDefinitions: fontFaces.length,
     fontFaceLinks: linkedFonts.length,
     urlAssetReferences: assets.length,
-    records: { customPropertyDefinitions: definitions, customPropertyReferences: references, keyframes, animationNameLinks: linkedAnimations, fontFaces, fontFaceLinks: linkedFonts, urlAssetReferences: assets },
+    propertyRegistrations: descriptors.propertyRegistrations.length,
+    propertyRegistrationDescriptors: descriptors.propertyRegistrationDescriptors.length,
+    pageDescriptors: descriptors.pageDescriptors.length,
+    pageMarginDescriptors: descriptors.pageMarginDescriptors.length,
+    records: { customPropertyDefinitions: definitions, customPropertyReferences: references, keyframes, animationNameLinks: linkedAnimations, fontFaces, fontFaceLinks: linkedFonts, urlAssetReferences: assets, propertyRegistrations: descriptors.propertyRegistrations, propertyRegistrationDescriptors: descriptors.propertyRegistrationDescriptors, pageDescriptors: descriptors.pageDescriptors, pageMarginDescriptors: descriptors.pageMarginDescriptors },
     browserCascadeEquivalenceClaim: false,
     browserRenderEquivalenceClaim: false,
     semanticEquivalenceClaim: false
@@ -80,6 +91,7 @@ function mergeCssDependencyGraphEvidence(sheets, changed = {}) {
     dependencySurfaceCount: Math.max(0, ...sideValues.map((side) => side.dependencySurfaceCount ?? 0)),
     dependencyGraphHashPresent: hasDependencySurface && sideValues.every((side) => side.hasDependencySurface !== true || side.dependencyGraphHashPresent === true),
     cssDependencyGraphHashPresent: hasDependencySurface && sideValues.every((side) => side.hasDependencySurface !== true || side.cssDependencyGraphHashPresent === true),
+    propertyRegistrations: maxSideNumber(sideValues, 'propertyRegistrations'), propertyRegistrationDescriptors: maxSideNumber(sideValues, 'propertyRegistrationDescriptors'), pageDescriptors: maxSideNumber(sideValues, 'pageDescriptors'), pageMarginDescriptors: maxSideNumber(sideValues, 'pageMarginDescriptors'),
     changedDependencySurfaceCount: changedDependencySurfaces.length,
     changedDependencySurfaces,
     sides,
@@ -287,25 +299,17 @@ function fontFamilyNames(value) {
   return unique(String(value ?? '').split(',').map((part) => part.trim().replace(/^['"]|['"]$/g, '')).filter((part) => part && !FontKeywords.has(part) && !/^[\d.]+/.test(part)));
 }
 
-function firstCssIdent(value) {
-  return /^[-_A-Za-z][\w-]*/.exec(String(value ?? '').trim())?.[0];
-}
+function firstCssIdent(value) { return /^[-_A-Za-z][\w-]*/.exec(String(value ?? '').trim())?.[0]; }
 
 function emptyGraphEvidence(sheet) {
   return { kind: 'frontier.lang.cssDependencyGraphEvidence', version: 1, sourceHash: sheet.sourceHash, hasDependencySurface: false, dependencySurfaceCount: 0, dependencyGraphHashPresent: false, cssDependencyGraphHashPresent: false, semanticEquivalenceClaim: false };
 }
 
-function stableTextHash(text) {
-  let hash = 2166136261;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`;
-}
+function stableTextHash(text) { let hash = 2166136261; for (let index = 0; index < text.length; index += 1) { hash ^= text.charCodeAt(index); hash = Math.imul(hash, 16777619); } return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`; }
 
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function compactRecord(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
+function maxSideNumber(sides, field) { return Math.max(0, ...sides.map((side) => side?.[field] ?? 0)); }
 function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }
 function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
 

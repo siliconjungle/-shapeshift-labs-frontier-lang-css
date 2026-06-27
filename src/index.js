@@ -89,6 +89,10 @@ export function parseCssSemanticSheet(sourceText, options = {}) {
       keyframeDefinitions: dependencyGraphEvidence.keyframeDefinitions,
       fontFaceLinks: dependencyGraphEvidence.fontFaceLinks,
       urlAssetReferences: dependencyGraphEvidence.urlAssetReferences,
+      propertyRegistrations: dependencyGraphEvidence.propertyRegistrations,
+      propertyRegistrationDescriptors: dependencyGraphEvidence.propertyRegistrationDescriptors,
+      pageDescriptors: dependencyGraphEvidence.pageDescriptors,
+      pageMarginDescriptors: dependencyGraphEvidence.pageMarginDescriptors,
       proofGaps: proofGaps.length,
       parseErrors: parsed.parser.parseErrors.length
     },

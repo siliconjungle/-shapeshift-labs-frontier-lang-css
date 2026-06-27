@@ -139,17 +139,64 @@ function scopedCascadeGraphHashesByShapeKey(options) {
 }
 
 function atRuleDependencyTokens(node, atRuleName) {
-  if (atRuleName !== 'font-face') return undefined;
   const declarations = (node.nodes ?? []).filter((child) => child.type === 'decl');
-  const fontFamilies = declarations
-    .filter((declaration) => String(declaration.prop ?? '').toLowerCase() === 'font-family')
-    .flatMap((declaration) => fontFamilyNames(declaration.value));
-  const urls = declarations.flatMap((declaration) => cssUrlReferences(declaration.value));
-  return compactRecord({ fontFamilies: unique(fontFamilies), urls: unique(urls) });
+  if (atRuleName === 'font-face') {
+    const fontFamilies = declarations
+      .filter((declaration) => String(declaration.prop ?? '').toLowerCase() === 'font-family')
+      .flatMap((declaration) => fontFamilyNames(declaration.value));
+    const urls = declarations.flatMap((declaration) => cssUrlReferences(declaration.value));
+    return compactRecord({ fontFamilies: unique(fontFamilies), urls: unique(urls) });
+  }
+  if (atRuleName === 'property') return compactRecord({ propertyRegistration: propertyRegistrationTokens(node, declarations) });
+  if (atRuleName === 'page') return compactRecord({ pageDescriptors: pageDescriptorTokens(node, declarations), pageMarginDescriptors: pageMarginDescriptorTokens(node) });
+  return undefined;
+}
+
+function propertyRegistrationTokens(node, declarations) {
+  const name = firstCssIdent(node.params);
+  const descriptors = declarations.map((declaration) => descriptorToken(declaration, { group: 'property-registration', owner: name }));
+  const byName = new Map(descriptors.map((descriptor) => [descriptor.name, descriptor]));
+  return compactRecord({
+    name,
+    syntax: byName.get('syntax')?.value,
+    inherits: byName.get('inherits')?.value,
+    initialValue: byName.get('initial-value')?.value,
+    descriptors,
+    descriptorHash: hashSemanticValue({ kind: 'frontier.lang.css.propertyRegistration.v1', name, descriptors: descriptors.map((descriptor) => ({ name: descriptor.name, value: descriptor.value })) })
+  });
+}
+
+function pageDescriptorTokens(node, declarations) {
+  const pageSelector = String(node.params ?? '').trim();
+  return declarations.map((declaration) => descriptorToken(declaration, { group: 'page', owner: pageSelector, pageSelector }));
+}
+
+function pageMarginDescriptorTokens(node) {
+  const pageSelector = String(node.params ?? '').trim();
+  return (node.nodes ?? []).filter((child) => child.type === 'atrule').flatMap((child) => (child.nodes ?? [])
+    .filter((nested) => nested.type === 'decl')
+    .map((declaration) => descriptorToken(declaration, { group: 'page-margin', owner: `${pageSelector}::@${String(child.name ?? '').toLowerCase()} ${String(child.params ?? '').trim()}`.trim(), pageSelector, marginBox: postcssAtRuleScopeKey(child) })));
+}
+
+function descriptorToken(node, context) {
+  const declaration = postcssDeclaration(node);
+  return compactRecord({
+    name: declaration.property,
+    value: declaration.value,
+    valueHash: declaration.valueHash,
+    sourceSpan: declaration.sourceSpan,
+    pageSelector: context.pageSelector,
+    marginBox: context.marginBox,
+    descriptorHash: hashSemanticValue({ kind: `frontier.lang.css.${context.group}.descriptor.v1`, owner: context.owner, name: declaration.property, value: declaration.value })
+  });
 }
 
 function fontFamilyNames(value) {
   return String(value ?? '').split(',').map((part) => part.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+}
+
+function firstCssIdent(value) {
+  return /^[-_A-Za-z][\w-]*/.exec(String(value ?? '').trim())?.[0];
 }
 
 function cssUrlReferences(value) {
