@@ -38,7 +38,8 @@ function isCascadeRuntimeProofForChange(proof, change, sourcePath, binding, hash
     cascadeProofSourceMatches(proof, 'base', binding.base, hash) &&
     cascadeProofSourceMatches(proof, 'worker', binding.worker, hash) &&
     cascadeProofSourceMatches(proof, 'head', binding.head, hash) &&
-    cascadeProofSourceMatches(proof, 'output', binding.output, hash);
+    cascadeProofSourceMatches(proof, 'output', binding.output, hash) &&
+    Boolean(cascadeRuntimeEvidenceMetadata(proof, change.reasonCode));
 }
 
 function cascadeProofSourceMatches(proof, role, sourceText, hash) {
@@ -54,6 +55,7 @@ function cascadeProofSourceMatches(proof, role, sourceText, hash) {
 }
 
 function cascadeRuntimeProofRecord(proof, change, sourcePath, binding, hash) {
+  const runtimeEvidence = cascadeRuntimeEvidenceMetadata(proof, change.reasonCode);
   return {
     id: proof.id,
     kind: proof.kind,
@@ -66,7 +68,17 @@ function cascadeRuntimeProofRecord(proof, change, sourcePath, binding, hash) {
     baseSourceHash: hash?.(binding.base),
     workerSourceHash: hash?.(binding.worker),
     headSourceHash: hash?.(binding.head),
-    outputSourceHash: hash?.(binding.output)
+    outputSourceHash: hash?.(binding.output),
+    runtimeCommand: runtimeEvidence.command,
+    runtimeProbeId: runtimeEvidence.probeId,
+    runtimeEvidenceHash: runtimeEvidence.evidenceHash,
+    runtimeSignals: runtimeEvidence.signals,
+    requiredRuntimeSignals: runtimeEvidence.requiredSignals,
+    runtimeEvidenceBound: true,
+    browserCascadeEquivalenceClaim: true,
+    browserRenderEquivalenceClaim: false,
+    semanticEquivalenceClaim: false,
+    autoMergeClaim: false
   };
 }
 
@@ -74,6 +86,37 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
   return { code, gateId: 'css-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `css#${id}#${reasonCode}#${details.cascadeKey ?? details.shapeKey ?? sourcePath ?? 'source'}`, ...details } };
 }
 
+function cascadeRuntimeEvidenceMetadata(proof, reasonCode) {
+  const command = firstString(proof.runtimeCommand, proof.browserCommand, proof.command, proof.commandId, proof.probeCommand, proof.evidence?.command, proof.runtimeEvidence?.command, proof.browserEvidence?.command, proof.evidence?.commandId, proof.runtimeEvidence?.commandId, proof.browserEvidence?.commandId);
+  const probeId = firstString(proof.runtimeProbeId, proof.browserProbeId, proof.probeId, proof.probe?.id, proof.evidence?.probeId, proof.runtimeEvidence?.probeId, proof.browserEvidence?.probeId);
+  const evidenceHash = firstString(proof.runtimeEvidenceHash, proof.browserEvidenceHash, proof.evidenceHash, proof.cascadeEvidenceHash, proof.renderEvidenceHash, proof.evidence?.hash, proof.evidence?.evidenceHash, proof.runtimeEvidence?.hash, proof.runtimeEvidence?.evidenceHash, proof.browserEvidence?.hash, proof.browserEvidence?.evidenceHash);
+  const signals = runtimeSignalSet(proof);
+  const requiredSignals = requiredRuntimeSignalsForReason(reasonCode);
+  if ((!command && !probeId) || !evidenceHash || !requiredSignals.some((signal) => signals.has(signal))) return undefined;
+  return { command, probeId, evidenceHash, signals: [...signals].sort(), requiredSignals };
+}
+
+function runtimeSignalSet(proof) {
+  const signals = new Set();
+  for (const value of [proof.runtimeSignals, proof.browserSignals, proof.evidenceSignals, proof.probeSignals, proof.evidence?.signals, proof.runtimeEvidence?.signals, proof.browserEvidence?.signals]) addRuntimeSignals(signals, value);
+  return signals;
+}
+
+function addRuntimeSignals(signals, value) {
+  if (Array.isArray(value)) for (const item of value) addRuntimeSignals(signals, item);
+  else if (typeof value === 'string' && value.trim()) signals.add(value.trim());
+  else if (value && typeof value === 'object') for (const [key, enabled] of Object.entries(value)) if (enabled) signals.add(key);
+}
+
+function requiredRuntimeSignalsForReason(reasonCode = '') {
+  if (reasonCode.includes('keyframes')) return ['css-keyframes-runtime', 'keyframes-runtime', 'animation-runtime'];
+  if (reasonCode.includes('font-face')) return ['css-font-face-runtime', 'font-face-runtime', 'font-loading-runtime'];
+  if (reasonCode.includes('property')) return ['css-property-registration-runtime', 'property-registration-runtime'];
+  if (reasonCode.includes('page')) return ['css-page-runtime', 'page-layout-runtime', 'paged-media-runtime'];
+  return ['css-cascade-runtime', 'cascade-runtime', 'browser-cascade-runtime'];
+}
+
+function firstString(...values) { return values.find((value) => typeof value === 'string' && value.trim())?.trim(); }
 function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }
 function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
 

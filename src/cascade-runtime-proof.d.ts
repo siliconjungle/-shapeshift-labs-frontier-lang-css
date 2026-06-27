@@ -16,6 +16,27 @@ export interface CssCascadeRuntimeProof {
   readonly sources?: Readonly<Record<string, string>>;
   readonly sourceHashes?: Readonly<Record<string, string>>;
   readonly hashes?: Readonly<Record<string, string>>;
+  readonly runtimeCommand?: string; readonly browserCommand?: string; readonly command?: string; readonly commandId?: string; readonly probeCommand?: string;
+  readonly runtimeProbeId?: string; readonly browserProbeId?: string; readonly probeId?: string;
+  readonly runtimeEvidenceHash?: string; readonly browserEvidenceHash?: string; readonly evidenceHash?: string; readonly cascadeEvidenceHash?: string; readonly renderEvidenceHash?: string;
+  readonly runtimeSignals?: readonly string[] | Readonly<Record<string, boolean>>;
+  readonly browserSignals?: readonly string[] | Readonly<Record<string, boolean>>;
+  readonly evidenceSignals?: readonly string[] | Readonly<Record<string, boolean>>;
+  readonly probeSignals?: readonly string[] | Readonly<Record<string, boolean>>;
+  readonly probe?: CssCascadeRuntimeProofEvidenceRef;
+  readonly evidence?: CssCascadeRuntimeProofEvidenceRef;
+  readonly runtimeEvidence?: CssCascadeRuntimeProofEvidenceRef;
+  readonly browserEvidence?: CssCascadeRuntimeProofEvidenceRef;
+}
+
+export interface CssCascadeRuntimeProofEvidenceRef {
+  readonly id?: string;
+  readonly command?: string;
+  readonly commandId?: string;
+  readonly probeId?: string;
+  readonly hash?: string;
+  readonly evidenceHash?: string;
+  readonly signals?: readonly string[] | Readonly<Record<string, boolean>>;
 }
 
 export interface CssCascadeRuntimeProofRecord {
@@ -31,4 +52,14 @@ export interface CssCascadeRuntimeProofRecord {
   readonly workerSourceHash?: string;
   readonly headSourceHash?: string;
   readonly outputSourceHash?: string;
+  readonly runtimeCommand?: string;
+  readonly runtimeProbeId?: string;
+  readonly runtimeEvidenceHash: string;
+  readonly runtimeSignals: readonly string[];
+  readonly requiredRuntimeSignals: readonly string[];
+  readonly runtimeEvidenceBound: true;
+  readonly browserCascadeEquivalenceClaim: true;
+  readonly browserRenderEquivalenceClaim: false;
+  readonly semanticEquivalenceClaim: false;
+  readonly autoMergeClaim: false;
 }

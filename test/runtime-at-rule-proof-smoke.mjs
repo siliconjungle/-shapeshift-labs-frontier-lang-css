@@ -37,6 +37,8 @@ const propertyProven = safeMergeCssSource({
 });
 assert.equal(propertyProven.status, 'merged');
 assert.equal(propertyProven.mergedSourceText, propertyOutput);
+assert.equal(propertyProven.cascadeRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(propertyProven.cascadeRuntimeProofs[0].runtimeSignals.includes('css-property-registration-runtime'), true);
 
 const pageBase = '@page { margin: 1cm; }\n.article { color: red; }\n';
 const pageWorker = pageBase.replace('margin: 1cm', 'margin: 0.75cm');
@@ -72,7 +74,10 @@ const pageProven = safeMergeCssSource({
 });
 assert.equal(pageProven.status, 'merged');
 assert.equal(pageProven.mergedSourceText, pageOutput);
+assert.equal(pageProven.cascadeRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(pageProven.cascadeRuntimeProofs[0].runtimeSignals.includes('css-page-runtime'), true);
 
 function runtimeProof({ id, sourcePath, reasonCode, shapeKey, base, worker, head, output }) {
-  return { id, kind: 'css-source-bound-cascade-runtime-proof', status: 'passed', sourcePath, reasonCode, side: 'worker', shapeKey, baseSourceHash: hashSemanticValue(base), workerSourceHash: hashSemanticValue(worker), headSourceHash: hashSemanticValue(head), outputSourceHash: hashSemanticValue(output) };
+  const runtimeSignal = reasonCode.includes('property') ? 'css-property-registration-runtime' : 'css-page-runtime';
+  return { id, kind: 'css-source-bound-cascade-runtime-proof', status: 'passed', sourcePath, reasonCode, side: 'worker', shapeKey, baseSourceHash: hashSemanticValue(base), workerSourceHash: hashSemanticValue(worker), headSourceHash: hashSemanticValue(head), outputSourceHash: hashSemanticValue(output), runtimeCommand: 'playwright test css-runtime-at-rules.spec.ts', runtimeProbeId: `${shapeKey}:probe`, runtimeEvidenceHash: hashSemanticValue(`${sourcePath}:${reasonCode}:${shapeKey}:runtime`), runtimeSignals: [runtimeSignal] };
 }

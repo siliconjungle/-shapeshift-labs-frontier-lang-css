@@ -69,12 +69,18 @@ const provenKeyframes = safeMergeCssSource({
     baseSourceHash: hashSemanticValue(keyframesBase),
     workerSourceHash: hashSemanticValue(keyframesWorker),
     headSourceHash: hashSemanticValue(keyframesHead),
-    outputSourceHash: hashSemanticValue(provenOutput)
+    outputSourceHash: hashSemanticValue(provenOutput),
+    runtimeCommand: 'playwright test css-keyframes-runtime.spec.ts',
+    runtimeProbeId: 'css-keyframes-fade-probe',
+    runtimeEvidenceHash: hashSemanticValue('anim.css keyframes runtime evidence'),
+    runtimeSignals: ['css-keyframes-runtime']
   }]
 });
 assert.equal(provenKeyframes.status, 'merged');
 assert.equal(provenKeyframes.mergedSourceText, provenOutput);
 assert.equal(provenKeyframes.cascadeRuntimeProofs.length, 1);
+assert.equal(provenKeyframes.cascadeRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(provenKeyframes.cascadeRuntimeProofs[0].runtimeSignals.includes('css-keyframes-runtime'), true);
 
 const divergentKeyframes = safeMergeCssSource({
   id: 'css_keyframes_divergent',

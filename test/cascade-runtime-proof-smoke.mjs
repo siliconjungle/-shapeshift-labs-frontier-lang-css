@@ -16,8 +16,29 @@ const proof = {
   baseSourceHash: hashSemanticValue(base),
   workerSourceHash: hashSemanticValue(worker),
   headSourceHash: hashSemanticValue(base),
-  outputSourceHash: hashSemanticValue(output)
+  outputSourceHash: hashSemanticValue(output),
+  runtimeCommand: 'playwright test css-cascade-runtime.spec.ts',
+  runtimeProbeId: 'css-media-cascade-probe',
+  runtimeEvidenceHash: hashSemanticValue('button.css media cascade runtime evidence'),
+  runtimeSignals: ['css-cascade-runtime']
 };
+
+const sourceHashOnlyProof = { ...proof };
+delete sourceHashOnlyProof.runtimeCommand;
+delete sourceHashOnlyProof.runtimeProbeId;
+delete sourceHashOnlyProof.runtimeEvidenceHash;
+delete sourceHashOnlyProof.runtimeSignals;
+const missingRuntimeEvidence = safeMergeCssSource({
+  id: 'css_source_shape_source_hash_only',
+  sourcePath: 'button.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: base,
+  scopedCascadeGraphHash: 'hash_scoped_cascade',
+  cssCascadeRuntimeProofs: [sourceHashOnlyProof]
+});
+assert.equal(missingRuntimeEvidence.status, 'blocked');
+assert.equal(missingRuntimeEvidence.conflicts.some((conflict) => conflict.details.reasonCode === 'css-atrule-new-scope-unsupported'), true);
 
 const wrongProof = safeMergeCssSource({
   id: 'css_source_shape_wrong_proof',
@@ -46,4 +67,7 @@ assert.equal(proven.browserRenderEquivalenceClaim, false);
 assert.equal(proven.admission.browserCascadeEquivalenceClaim, true);
 assert.equal(proven.cascadeRuntimeProofs.length, 1);
 assert.equal(proven.cascadeRuntimeProofs[0].reasonCode, 'css-atrule-new-scope-unsupported');
+assert.equal(proven.cascadeRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(proven.cascadeRuntimeProofs[0].runtimeEvidenceHash, proof.runtimeEvidenceHash);
+assert.deepEqual(proven.cascadeRuntimeProofs[0].requiredRuntimeSignals, ['css-cascade-runtime', 'cascade-runtime', 'browser-cascade-runtime']);
 assert.equal(proven.mergedSourceText, output);
