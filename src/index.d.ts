@@ -1,4 +1,4 @@
-import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence } from './dependency-graph.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js';
+import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js';
 
 export interface CssProjectionOptions {
   readonly banner?: string;
@@ -227,6 +227,7 @@ export interface CssSafeMergeAdmission {
   readonly reviewRequired: boolean; readonly reasonCodes: readonly string[];
   readonly browserCascadeEquivalenceClaim?: true;
   readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
+  readonly cssDependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
 }
 
 export interface CssSafeMergeResult {
@@ -242,6 +243,7 @@ export interface CssSafeMergeResult {
   readonly workerChangedCssModuleContracts?: number; readonly headChangedCssModuleContracts?: number;
   readonly parserEvidence?: CssSafeMergeParserEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence; readonly dependencyGraphEvidence?: CssDependencyGraphEvidence;
   readonly cascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
+  readonly dependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
 }
 
 export interface CssSafeMergeParserEvidence {
@@ -295,6 +297,8 @@ export interface CssSafeMergeInput {
   readonly cascadeRuntimeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
   readonly sourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly sourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[];
   readonly sourceBoundCascadeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
+  readonly cssDependencyGraphProof?: CssDependencyGraphProof; readonly cssDependencyGraphProofs?: readonly CssDependencyGraphProof[]; readonly cssSourceBoundDependencyGraphProof?: CssDependencyGraphProof; readonly cssSourceBoundDependencyGraphProofs?: readonly CssDependencyGraphProof[];
+  readonly cssDependencyGraphProofsByPath?: Readonly<Record<string, CssDependencyGraphProof | readonly CssDependencyGraphProof[]>>; readonly cssSourceBoundDependencyGraphProofsByPath?: Readonly<Record<string, CssDependencyGraphProof | readonly CssDependencyGraphProof[]>>;
   readonly selectorTargetGraphHash?: string; readonly selectorTargetEquivalences?: readonly CssSelectorTargetEquivalence[];
   readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
   readonly baseGeneratedClassNameMapHash?: string; readonly workerGeneratedClassNameMapHash?: string; readonly headGeneratedClassNameMapHash?: string;

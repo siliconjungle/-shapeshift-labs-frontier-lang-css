@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { createCssSemanticMergeEvidence, parseCssSemanticSheet, safeMergeCssSource } from '../dist/index.js';
 
 const dependencySource = [
@@ -56,19 +57,50 @@ const base = [
 ].join('\n');
 const worker = base.replace('--motion-name: fade', '--motion-name: fade-fast');
 const head = base.replace('color: red', 'color: blue');
-const merge = safeMergeCssSource({
+const blockedMerge = safeMergeCssSource({
   id: 'css_dependency_graph_merge_evidence',
   sourcePath: 'spinner.css',
   baseSourceText: base,
   workerSourceText: worker,
   headSourceText: head
 });
-assert.equal(merge.status, 'merged');
-assert.equal(merge.dependencyGraphEvidence.kind, 'frontier.lang.cssSafeMergeDependencyGraphEvidence');
-assert.equal(merge.dependencyGraphEvidence.hasDependencySurface, true);
-assert.equal(merge.dependencyGraphEvidence.dependencyGraphHashPresent, true);
-assert.equal(merge.dependencyGraphEvidence.cssDependencyGraphHashPresent, true);
-assert.equal(merge.dependencyGraphEvidence.changedDependencySurfaceCount, 1);
-assert.equal(merge.dependencyGraphEvidence.semanticEquivalenceClaim, false);
-assert.equal(merge.dependencyGraphEvidence.browserCascadeEquivalenceClaim, false);
-assert.equal(merge.dependencyGraphEvidence.sides.worker.customPropertyDefinitions, 1);
+assert.equal(blockedMerge.status, 'blocked');
+assert.equal(blockedMerge.dependencyGraphEvidence.kind, 'frontier.lang.cssSafeMergeDependencyGraphEvidence');
+assert.equal(blockedMerge.dependencyGraphEvidence.hasDependencySurface, true);
+assert.equal(blockedMerge.dependencyGraphEvidence.dependencyGraphHashPresent, true);
+assert.equal(blockedMerge.dependencyGraphEvidence.cssDependencyGraphHashPresent, true);
+assert.equal(blockedMerge.dependencyGraphEvidence.changedDependencySurfaceCount, 1);
+assert.equal(blockedMerge.dependencyGraphEvidence.changedDependencySurfaces[0].cascadeKey, ':root::--motion-name');
+assert.equal(blockedMerge.dependencyGraphEvidence.changedDependencySurfaces[0].reasonCode, 'css-dependency-graph-proof-unproved');
+assert.equal(blockedMerge.dependencyGraphEvidence.semanticEquivalenceClaim, false);
+assert.equal(blockedMerge.dependencyGraphEvidence.browserCascadeEquivalenceClaim, false);
+assert.equal(blockedMerge.dependencyGraphEvidence.sides.worker.customPropertyDefinitions, 1);
+assert.equal(blockedMerge.conflicts.some((item) => item.details.reasonCode === 'css-dependency-graph-proof-unproved'), true);
+
+const provenOutput = '@keyframes fade { from { opacity: 0; } to { opacity: 1; } }\n\n:root {\n  --motion-name: fade-fast;\n}\n\n.spinner {\n  animation-name: var(--motion-name, fade);\n  color: blue;\n}\n';
+const graphHash = (sourceText) => parseCssSemanticSheet(sourceText, { sourcePath: 'spinner.css' }).dependencyGraphEvidence.dependencyGraphHash;
+const provenMerge = safeMergeCssSource({
+  id: 'css_dependency_graph_merge_proven',
+  sourcePath: 'spinner.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: head,
+  cssDependencyGraphProofs: [{
+    id: 'proof_css_dependency_graph_motion_name',
+    kind: 'css-source-bound-dependency-graph-proof',
+    status: 'passed',
+    sourcePath: 'spinner.css',
+    reasonCode: 'css-dependency-graph-proof-unproved',
+    side: 'worker',
+    cascadeKey: ':root::--motion-name',
+    baseSourceHash: hashSemanticValue(base),
+    workerSourceHash: hashSemanticValue(worker),
+    headSourceHash: hashSemanticValue(head),
+    outputSourceHash: hashSemanticValue(provenOutput),
+    dependencyGraphHashes: { base: graphHash(base), worker: graphHash(worker), head: graphHash(head) }
+  }]
+});
+assert.equal(provenMerge.status, 'merged');
+assert.equal(provenMerge.mergedSourceText, provenOutput);
+assert.equal(provenMerge.dependencyGraphProofs.length, 1);
+assert.equal(provenMerge.admission.cssDependencyGraphProofs.length, 1);

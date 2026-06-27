@@ -1,6 +1,6 @@
 import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeChanges } from './semantic-merge-css-modules.js';
 import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
-import { mergeCssDependencyGraphEvidence } from './dependency-graph.js';
+import { admitCssDependencyGraphProofs, mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
 import { applyAtRuleBlockChanges, atRuleBlockEntry, atRuleBlockOverlapConflicts, atRuleOccurrenceKey, changedAtRuleBlocks, renderAtRuleBlock, renderAtRuleStatement } from './semantic-merge-at-rules.js';
 import { declarationsOverlapByCssProperty, shorthandGroupForProperty } from './semantic-merge-shorthand.js';
@@ -52,8 +52,9 @@ function safeMergeCssSource(input = {}, context = {}) {
     binding: { base, worker, head, output: mergedSourceText },
     hash
   });
-  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...selectorTargetPlan.conflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs });
+  const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
+  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs });
   return merged(id, sourcePath, mergedSourceText, 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
     workerSheetHash: sheets.worker.sheetHash,
@@ -66,6 +67,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     dependencyGraphEvidence,
     selectorTargetEvidence: selectorTargetPlan.evidence,
     cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs,
+    dependencyGraphProofs: dependencyGraphAdmission.proofs,
     browserCascadeEquivalenceClaim: cascadeRuntimeAdmission.proofs.length > 0
   });
 }
@@ -297,7 +299,7 @@ function result(id, sourcePath, status, body) {
       reviewRequired: status !== 'merged',
       reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
       browserCascadeEquivalenceClaim: browserCascadeEquivalenceClaim || undefined,
-      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined
+      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined, cssDependencyGraphProofs: body.dependencyGraphProofs?.length ? body.dependencyGraphProofs : undefined
     }
   };
 }

@@ -30,6 +30,15 @@ export interface CssDependencyGraphRecordSets {
   readonly urlAssetReferences?: readonly CssDependencyGraphRecord[];
 }
 
+export interface CssDependencyGraphChange {
+  readonly side: 'worker' | 'head' | string;
+  readonly cascadeKey: string;
+  readonly reasonCode: 'css-dependency-graph-proof-unproved' | string;
+  readonly changeKind?: string;
+  readonly before?: Readonly<Record<string, unknown>>;
+  readonly after?: Readonly<Record<string, unknown>>;
+}
+
 export interface CssDependencyGraphEvidence {
   readonly kind: 'frontier.lang.cssDependencyGraphEvidence' | 'frontier.lang.cssSafeMergeDependencyGraphEvidence' | string;
   readonly version: 1;
@@ -42,6 +51,7 @@ export interface CssDependencyGraphEvidence {
   readonly dependencyGraphHash?: string;
   readonly cssDependencyGraphHash?: string;
   readonly changedDependencySurfaceCount?: number;
+  readonly changedDependencySurfaces?: readonly CssDependencyGraphChange[];
   readonly customPropertyDefinitions?: number;
   readonly customPropertyReferences?: number;
   readonly varReferences?: number;
@@ -57,4 +67,37 @@ export interface CssDependencyGraphEvidence {
   readonly browserCascadeEquivalenceClaim?: false;
   readonly browserRenderEquivalenceClaim?: false;
   readonly semanticEquivalenceClaim: false;
+}
+
+export interface CssDependencyGraphProof {
+  readonly id?: string;
+  readonly kind: 'css-dependency-graph-proof' | 'css-source-bound-dependency-graph-proof' | string;
+  readonly status: 'passed' | string;
+  readonly proofLevel?: string;
+  readonly sourcePath?: string;
+  readonly reasonCode?: string; readonly reasonCodes?: readonly string[];
+  readonly side?: 'worker' | 'head' | string; readonly sides?: readonly string[];
+  readonly cascadeKey?: string; readonly cascadeKeys?: readonly string[];
+  readonly dependencyKey?: string; readonly dependencyKeys?: readonly string[];
+  readonly baseSourceText?: string; readonly workerSourceText?: string; readonly headSourceText?: string; readonly outputSourceText?: string; readonly mergedSourceText?: string;
+  readonly baseSourceHash?: string; readonly workerSourceHash?: string; readonly headSourceHash?: string; readonly outputSourceHash?: string; readonly mergedSourceHash?: string;
+  readonly sourceTexts?: Readonly<Record<string, string>>; readonly sources?: Readonly<Record<string, string>>;
+  readonly sourceHashes?: Readonly<Record<string, string>>; readonly hashes?: Readonly<Record<string, string>>;
+  readonly baseDependencyGraphHash?: string; readonly workerDependencyGraphHash?: string; readonly headDependencyGraphHash?: string;
+  readonly baseCssDependencyGraphHash?: string; readonly workerCssDependencyGraphHash?: string; readonly headCssDependencyGraphHash?: string;
+  readonly dependencyGraphHashes?: Readonly<Record<string, string>>;
+  readonly cssDependencyGraphHashes?: Readonly<Record<string, string>>;
+}
+
+export interface CssDependencyGraphProofRecord {
+  readonly id?: string;
+  readonly kind: string;
+  readonly status: 'passed';
+  readonly proofLevel: string;
+  readonly reasonCode: string;
+  readonly side: string;
+  readonly cascadeKey: string;
+  readonly sourcePath?: string;
+  readonly baseSourceHash?: string; readonly workerSourceHash?: string; readonly headSourceHash?: string; readonly outputSourceHash?: string;
+  readonly baseDependencyGraphHash?: string; readonly workerDependencyGraphHash?: string; readonly headDependencyGraphHash?: string;
 }
