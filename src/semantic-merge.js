@@ -101,7 +101,7 @@ function declarationIndex(sheet) {
         key: declaration.cascadeKey,
         ruleKey,
         selectors: record.selectors,
-        scopes: record.scopes ?? [],
+        scopes: record.scopes ?? [], specificity: record.specificity,
         property: declaration.property,
         value: declaration.value,
         important: declaration.important,

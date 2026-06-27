@@ -45,6 +45,9 @@ function selectorTargetMoves(changes, side) {
       afterSelectors: addition.after.selectors,
       beforeScopes: deletion.before.scopes,
       afterScopes: addition.after.scopes,
+      beforeSpecificity: deletion.before.specificity,
+      afterSpecificity: addition.after.specificity,
+      specificityInvariant: specificityListKey(deletion.before.specificity) === specificityListKey(addition.after.specificity),
       declarationHash: addition.after.declarationHash,
       beforeSelectorTargetGraphHash: deletion.before.selectorTargetGraphHash,
       afterSelectorTargetGraphHash: addition.after.selectorTargetGraphHash,
@@ -73,7 +76,7 @@ function selectorTargetMoveSidePlan(id, sourcePath, moves, oppositeMoves, opposi
     for (let index = 0; index < oppositeChanges.length; index += 1) {
       const change = oppositeChanges[index];
       if (!selectorMoveTouchesChange(move, change)) continue;
-      if (canRebaseChange(move, change, options)) {
+      if (canRebaseChange(move, change, options, sourcePath)) {
         const rebased = rebaseChangeToSelectorMove(change, move);
         oppositeChanges[index] = rebased.change;
         rebaseProofs.push(rebased.proof);
@@ -83,16 +86,19 @@ function selectorTargetMoveSidePlan(id, sourcePath, moves, oppositeMoves, opposi
   return { conflicts, rebaseProofs };
 }
 
-function canRebaseChange(move, change, options) {
-  return change.kind === 'add' && change.after && hasSelectorTargetEquivalence(move, options);
+function canRebaseChange(move, change, options, sourcePath) {
+  return change.kind === 'add' && change.after && hasSelectorTargetEquivalence(move, options, sourcePath);
 }
 
-function hasSelectorTargetEquivalence(move, options) {
+function hasSelectorTargetEquivalence(move, options, sourcePath) {
+  if (!move.specificityInvariant) return false;
   return (options.selectorTargetEquivalences ?? []).some((entry) => {
+    const sourceMatches = !entry.sourcePath || entry.sourcePath === sourcePath;
     const ruleKeysMatch = entry.fromRuleKey === move.beforeRuleKey && entry.toRuleKey === move.afterRuleKey;
     const selectorsMatch = selectorListKey(entry.fromSelectors) === selectorListKey(move.beforeSelectors) && selectorListKey(entry.toSelectors) === selectorListKey(move.afterSelectors);
-    const graphMatches = !entry.graphHash || entry.graphHash === move.beforeSelectorTargetGraphHash || entry.graphHash === move.afterSelectorTargetGraphHash;
-    return graphMatches && (ruleKeysMatch || selectorsMatch);
+    const graphMatches = Boolean(entry.graphHash && entry.graphHash === move.beforeSelectorTargetGraphHash && entry.graphHash === move.afterSelectorTargetGraphHash);
+    const specificityMatches = (!entry.fromSpecificity || specificityListKey(entry.fromSpecificity) === specificityListKey(move.beforeSpecificity)) && (!entry.toSpecificity || specificityListKey(entry.toSpecificity) === specificityListKey(move.afterSpecificity));
+    return sourceMatches && graphMatches && specificityMatches && (ruleKeysMatch || selectorsMatch);
   });
 }
 
@@ -100,7 +106,7 @@ function rebaseChangeToSelectorMove(change, move) {
   const after = { ...change.after, ruleKey: move.afterRuleKey, selectors: move.afterSelectors, scopes: move.afterScopes ?? [], key: cascadeKey(move.afterScopes, move.afterSelectors, change.after.property), rebasedFromRuleKey: move.beforeRuleKey };
   return {
     change: { ...change, key: after.key, after },
-    proof: { kind: 'css-selector-target-rebase', side: change.side, fromRuleKey: move.beforeRuleKey, toRuleKey: move.afterRuleKey, property: change.after.property, cascadeKey: after.key }
+    proof: { kind: 'css-selector-target-rebase', side: change.side, fromRuleKey: move.beforeRuleKey, toRuleKey: move.afterRuleKey, property: change.after.property, cascadeKey: after.key, selectorTargetGraphHash: move.afterSelectorTargetGraphHash, specificityInvariant: true, beforeSpecificity: move.beforeSpecificity, afterSpecificity: move.afterSpecificity }
   };
 }
 
@@ -134,6 +140,7 @@ function sameSelectorMove(left, right) {
 
 function cascadeKey(scopes = [], selectors = [], property) { return [...scopes, selectors.join(','), property].join('::'); }
 function selectorListKey(value = []) { return Array.isArray(value) ? value.join(',') : undefined; }
+function specificityListKey(value = []) { return Array.isArray(value) ? value.map((item) => Array.isArray(item) ? item.join(',') : '').join('|') : undefined; }
 function changeDetails(change) { return { kind: change.kind, property: (change.after ?? change.before)?.property, value: change.after?.value, important: change.after?.important }; }
 
 export { mergeSelectorTargetEvidence, planSelectorTargetRebase };

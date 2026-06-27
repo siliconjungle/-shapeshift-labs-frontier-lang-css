@@ -273,15 +273,15 @@ export interface CssSafeMergeSelectorTargetSideEvidence {
 export interface CssSafeMergeSelectorMove {
   readonly side: string; readonly property: string; readonly beforeRuleKey: string; readonly afterRuleKey: string;
   readonly beforeSelectors?: readonly string[]; readonly afterSelectors?: readonly string[]; readonly beforeScopes?: readonly string[]; readonly afterScopes?: readonly string[];
-  readonly declarationHash: string; readonly beforeSelectorTargetGraphHash?: string; readonly afterSelectorTargetGraphHash?: string; readonly selectorTargetGraphHashPresent: boolean;
+  readonly beforeSpecificity?: readonly (readonly number[])[]; readonly afterSpecificity?: readonly (readonly number[])[]; readonly specificityInvariant: boolean; readonly declarationHash: string; readonly beforeSelectorTargetGraphHash?: string; readonly afterSelectorTargetGraphHash?: string; readonly selectorTargetGraphHashPresent: boolean;
 }
 
 export interface CssSafeMergeSelectorTargetRebaseProof {
-  readonly kind: 'css-selector-target-rebase'; readonly side: string; readonly fromRuleKey: string; readonly toRuleKey: string; readonly property: string; readonly cascadeKey: string;
+  readonly kind: 'css-selector-target-rebase'; readonly side: string; readonly fromRuleKey: string; readonly toRuleKey: string; readonly property: string; readonly cascadeKey: string; readonly selectorTargetGraphHash?: string; readonly specificityInvariant: true; readonly beforeSpecificity?: readonly (readonly number[])[]; readonly afterSpecificity?: readonly (readonly number[])[];
 }
 
 export interface CssSelectorTargetEquivalence {
-  readonly fromRuleKey?: string; readonly toRuleKey?: string; readonly fromSelectors?: readonly string[]; readonly toSelectors?: readonly string[]; readonly graphHash?: string;
+  readonly sourcePath?: string; readonly fromRuleKey?: string; readonly toRuleKey?: string; readonly fromSelectors?: readonly string[]; readonly toSelectors?: readonly string[]; readonly fromSpecificity?: readonly (readonly number[])[]; readonly toSpecificity?: readonly (readonly number[])[]; readonly graphHash?: string;
 }
 
 export interface CssSafeMergeInput {
