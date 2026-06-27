@@ -4,6 +4,7 @@ import { admitCssDependencyGraphProofs, mergeCssDependencyGraphEvidence } from '
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
 import { applyAtRuleBlockChanges, atRuleBlockEntry, atRuleBlockOverlapConflicts, atRuleOccurrenceKey, changedAtRuleBlocks, renderAtRuleBlock, renderAtRuleStatement } from './semantic-merge-at-rules.js';
 import { declarationsOverlapByCssProperty, shorthandGroupForProperty } from './semantic-merge-shorthand.js';
+import { duplicateCascadeKeyConflictsForIndexes } from './semantic-merge-duplicate-cascade.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
   const parseSheet = context.parseCssSemanticSheet;
@@ -32,6 +33,7 @@ function safeMergeCssSource(input = {}, context = {}) {
   const moduleChanges = cssModuleContractChanges(sheets, hash);
   const proofConflicts = proofGapConflicts(id, sourcePath, changed, indexes);
   const parserConflicts = parserErrorConflicts(id, sourcePath, sheets);
+  const duplicateCascadeKeyConflicts = duplicateCascadeKeyConflictsForIndexes(id, sourcePath, indexes);
   const overlapConflicts = [
     ...overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head),
     ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head),
@@ -53,7 +55,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     hash
   });
   const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
-  const conflicts = [...parserConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
+  const conflicts = [...parserConflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
   if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs });
   return merged(id, sourcePath, mergedSourceText, 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
@@ -79,21 +81,14 @@ function declarationIndex(sheet) {
   const atRuleBlocks = new Map();
   const atRuleBlockOrder = [];
   const atRuleOccurrences = new Map();
+  const declarationOccurrences = new Map();
   for (const record of sheet.records) {
     const block = atRuleBlockEntry(record, atRuleOccurrenceKey(record, atRuleOccurrences));
     if (block) {
       atRuleBlocks.set(block.key, block);
       atRuleBlockOrder.push(block.key);
     }
-    if (record.kind === 'at-rule-statement') {
-      statements.push({
-        key: record.atRuleHash,
-        scopes: record.scopes ?? [],
-        statementText: record.statementText,
-        atRuleName: record.atRuleName,
-        conditionText: record.conditionText
-      });
-    }
+    if (record.kind === 'at-rule-statement') statements.push({ key: record.atRuleHash, scopes: record.scopes ?? [], statementText: record.statementText, atRuleName: record.atRuleName, conditionText: record.conditionText });
     if (record.kind !== 'rule') continue;
     const ruleKey = ruleIdentityKey(record);
     for (const declaration of record.declarations ?? []) {
@@ -105,15 +100,20 @@ function declarationIndex(sheet) {
         property: declaration.property,
         value: declaration.value,
         important: declaration.important,
+        declarationOrdinal: declaration.ordinal,
         declarationHash: declaration.declarationHash,
         selectorTargetGraphHash: record.selectorTargetGraphHash,
         proofGaps: proofGapsForDeclaration(record, declaration)
       };
+      declarationOccurrences.set(entry.key, [...(declarationOccurrences.get(entry.key) ?? []), entry]);
       declarations.set(entry.key, entry);
       order.push(entry.key);
     }
   }
-  return { declarations, order: unique(order), statements, atRuleBlocks, atRuleBlockOrder: unique(atRuleBlockOrder) };
+  const duplicateCascadeKeyGroups = [...declarationOccurrences.entries()]
+    .filter(([, entries]) => entries.length > 1)
+    .map(([cascadeKey, entries]) => ({ cascadeKey, count: entries.length, entries }));
+  return { declarations, order: unique(order), statements, atRuleBlocks, atRuleBlockOrder: unique(atRuleBlockOrder), duplicateCascadeKeyGroups };
 }
 
 function changedDeclarations(baseIndex, currentIndex, side) {
