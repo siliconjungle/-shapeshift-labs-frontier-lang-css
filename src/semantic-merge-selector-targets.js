@@ -76,8 +76,9 @@ function selectorTargetMoveSidePlan(id, sourcePath, moves, oppositeMoves, opposi
     for (let index = 0; index < oppositeChanges.length; index += 1) {
       const change = oppositeChanges[index];
       if (!selectorMoveTouchesChange(move, change)) continue;
-      if (canRebaseChange(move, change, options, sourcePath)) {
-        const rebased = rebaseChangeToSelectorMove(change, move);
+      const proof = selectorTargetRebaseProofForChange(move, change, options, sourcePath);
+      if (proof) {
+        const rebased = rebaseChangeToSelectorMove(change, move, proof, options);
         oppositeChanges[index] = rebased.change;
         rebaseProofs.push(rebased.proof);
       } else conflicts.push(conflict(id, sourcePath, change.key, move, change));
@@ -86,27 +87,113 @@ function selectorTargetMoveSidePlan(id, sourcePath, moves, oppositeMoves, opposi
   return { conflicts, rebaseProofs };
 }
 
-function canRebaseChange(move, change, options, sourcePath) {
-  return change.kind === 'add' && change.after && hasSelectorTargetEquivalence(move, options, sourcePath);
+function selectorTargetRebaseProofForChange(move, change, options, sourcePath) {
+  if (change.kind !== 'add' || !change.after || !move.specificityInvariant) return undefined;
+  return selectorTargetProofCandidates(options, sourcePath)
+    .find((proof) => isSelectorTargetProofForChange(proof, move, change, sourcePath, options));
 }
 
-function hasSelectorTargetEquivalence(move, options, sourcePath) {
-  if (!move.specificityInvariant) return false;
-  return (options.selectorTargetEquivalences ?? []).some((entry) => {
-    const sourceMatches = !entry.sourcePath || entry.sourcePath === sourcePath;
-    const ruleKeysMatch = entry.fromRuleKey === move.beforeRuleKey && entry.toRuleKey === move.afterRuleKey;
-    const selectorsMatch = selectorListKey(entry.fromSelectors) === selectorListKey(move.beforeSelectors) && selectorListKey(entry.toSelectors) === selectorListKey(move.afterSelectors);
-    const graphMatches = Boolean(entry.graphHash && entry.graphHash === move.beforeSelectorTargetGraphHash && entry.graphHash === move.afterSelectorTargetGraphHash);
-    const specificityMatches = (!entry.fromSpecificity || specificityListKey(entry.fromSpecificity) === specificityListKey(move.beforeSpecificity)) && (!entry.toSpecificity || specificityListKey(entry.toSpecificity) === specificityListKey(move.afterSpecificity));
-    return sourceMatches && graphMatches && specificityMatches && (ruleKeysMatch || selectorsMatch);
-  });
+function selectorTargetProofCandidates(input = {}, sourcePath) {
+  return [
+    input.cssSelectorTargetProof,
+    input.cssSelectorTargetProofs,
+    input.cssSelectorTargetProofsByPath?.[sourcePath],
+    input.cssSourceBoundSelectorTargetProof,
+    input.cssSourceBoundSelectorTargetProofs,
+    input.cssSourceBoundSelectorTargetProofsByPath?.[sourcePath],
+    input.selectorTargetProof,
+    input.selectorTargetProofs,
+    input.selectorTargetProofsByPath?.[sourcePath],
+    input.selectorTargetRebaseProof,
+    input.selectorTargetRebaseProofs,
+    input.selectorTargetRebaseProofsByPath?.[sourcePath],
+    input.sourceBoundSelectorTargetProof,
+    input.sourceBoundSelectorTargetProofs,
+    input.sourceBoundSelectorTargetProofsByPath?.[sourcePath]
+  ].flatMap(asArray).filter(Boolean);
 }
 
-function rebaseChangeToSelectorMove(change, move) {
+function isSelectorTargetProofForChange(proof, move, change, sourcePath, options) {
+  const hash = options.hashSemanticValue;
+  const binding = options.sourceBinding ?? {};
+  return Boolean(proof && typeof proof === 'object') &&
+    SelectorTargetProofKinds.has(proof.kind) &&
+    proof.status === 'passed' &&
+    proof.sourcePath === sourcePath &&
+    proofCoversValue(proof.reasonCode, proof.reasonCodes, 'css-selector-target-rebase-unproved') &&
+    proofCoversValue(proof.moveSide ?? proof.selectorMoveSide, proof.moveSides ?? proof.selectorMoveSides ?? proof.sides, move.side) &&
+    proofCoversValue(proof.rebasedSide ?? proof.side, proof.rebasedSides, change.side) &&
+    selectorTargetRuleOrSelectorMatches(proof, move) &&
+    selectorTargetSpecificityMatches(proof, move) &&
+    selectorTargetGraphHashMatches(proof, move) &&
+    proofSourceMatches(proof, 'base', binding.base, hash) &&
+    proofSourceMatches(proof, 'worker', binding.worker, hash) &&
+    proofSourceMatches(proof, 'head', binding.head, hash);
+}
+
+function selectorTargetRuleOrSelectorMatches(proof, move) {
+  const ruleKeysMatch = proof.fromRuleKey === move.beforeRuleKey && proof.toRuleKey === move.afterRuleKey;
+  const selectorsMatch = selectorListKey(proof.fromSelectors) === selectorListKey(move.beforeSelectors) && selectorListKey(proof.toSelectors) === selectorListKey(move.afterSelectors);
+  return ruleKeysMatch || selectorsMatch;
+}
+
+function selectorTargetSpecificityMatches(proof, move) {
+  return move.specificityInvariant === true &&
+    specificityListKey(proof.fromSpecificity) === specificityListKey(move.beforeSpecificity) &&
+    specificityListKey(proof.toSpecificity) === specificityListKey(move.afterSpecificity);
+}
+
+function selectorTargetGraphHashMatches(proof, move) {
+  const beforeHash = move.beforeSelectorTargetGraphHash;
+  const afterHash = move.afterSelectorTargetGraphHash;
+  if (!beforeHash || !afterHash) return false;
+  const sharedHash = firstString(proof.selectorTargetGraphHash, proof.graphHash);
+  if (sharedHash && sharedHash === beforeHash && sharedHash === afterHash) return true;
+  return (proof.beforeSelectorTargetGraphHash === beforeHash && proof.afterSelectorTargetGraphHash === afterHash) ||
+    (proof.selectorTargetGraphHashes?.before === beforeHash && proof.selectorTargetGraphHashes?.after === afterHash) ||
+    (proof.graphHashes?.before === beforeHash && proof.graphHashes?.after === afterHash) ||
+    (proof.baseSelectorTargetGraphHash === beforeHash && proof[`${move.side}SelectorTargetGraphHash`] === afterHash);
+}
+
+function proofSourceMatches(proof, role, sourceText, hash) {
+  if (typeof sourceText !== 'string') return false;
+  const sourceHash = hash?.(sourceText);
+  return proof[`${role}SourceText`] === sourceText ||
+    proof.sourceTexts?.[role] === sourceText ||
+    proof.sources?.[role] === sourceText ||
+    (sourceHash !== undefined && proof[`${role}SourceHash`] === sourceHash) ||
+    (sourceHash !== undefined && proof.sourceHashes?.[role] === sourceHash) ||
+    (sourceHash !== undefined && proof.hashes?.[role] === sourceHash);
+}
+
+function rebaseChangeToSelectorMove(change, move, proof, options) {
   const after = { ...change.after, ruleKey: move.afterRuleKey, selectors: move.afterSelectors, scopes: move.afterScopes ?? [], key: cascadeKey(move.afterScopes, move.afterSelectors, change.after.property), rebasedFromRuleKey: move.beforeRuleKey };
   return {
     change: { ...change, key: after.key, after },
-    proof: { kind: 'css-selector-target-rebase', side: change.side, fromRuleKey: move.beforeRuleKey, toRuleKey: move.afterRuleKey, property: change.after.property, cascadeKey: after.key, selectorTargetGraphHash: move.afterSelectorTargetGraphHash, specificityInvariant: true, beforeSpecificity: move.beforeSpecificity, afterSpecificity: move.afterSpecificity }
+    proof: {
+      id: proof.id,
+      kind: 'css-selector-target-rebase',
+      proofKind: proof.kind,
+      status: 'passed',
+      proofLevel: proof.proofLevel ?? 'css-selector-target-source-bound',
+      side: change.side,
+      moveSide: move.side,
+      fromRuleKey: move.beforeRuleKey,
+      toRuleKey: move.afterRuleKey,
+      fromSelectors: move.beforeSelectors,
+      toSelectors: move.afterSelectors,
+      property: change.after.property,
+      cascadeKey: after.key,
+      selectorTargetGraphHash: move.afterSelectorTargetGraphHash,
+      beforeSelectorTargetGraphHash: move.beforeSelectorTargetGraphHash,
+      afterSelectorTargetGraphHash: move.afterSelectorTargetGraphHash,
+      specificityInvariant: true,
+      beforeSpecificity: move.beforeSpecificity,
+      afterSpecificity: move.afterSpecificity,
+      baseSourceHash: options.hashSemanticValue?.(options.sourceBinding?.base),
+      workerSourceHash: options.hashSemanticValue?.(options.sourceBinding?.worker),
+      headSourceHash: options.hashSemanticValue?.(options.sourceBinding?.head)
+    }
   };
 }
 
@@ -142,5 +229,10 @@ function cascadeKey(scopes = [], selectors = [], property) { return [...scopes, 
 function selectorListKey(value = []) { return Array.isArray(value) ? value.join(',') : undefined; }
 function specificityListKey(value = []) { return Array.isArray(value) ? value.map((item) => Array.isArray(item) ? item.join(',') : '').join('|') : undefined; }
 function changeDetails(change) { return { kind: change.kind, property: (change.after ?? change.before)?.property, value: change.after?.value, important: change.after?.important }; }
+function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }
+function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
+function firstString(...values) { return values.find((value) => typeof value === 'string' && value.length > 0); }
+
+const SelectorTargetProofKinds = new Set(['css-selector-target-proof', 'css-source-bound-selector-target-proof', 'css-selector-target-rebase-proof', 'css-source-bound-selector-target-rebase-proof']);
 
 export { mergeSelectorTargetEvidence, planSelectorTargetRebase };

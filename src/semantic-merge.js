@@ -45,7 +45,7 @@ function safeMergeCssSource(input = {}, context = {}) {
   const parserEvidence = mergeParserEvidence(sheets);
   const shorthandExpansionEvidence = mergeShorthandExpansionEvidence(indexes, changed);
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
-  const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, input);
+  const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, { ...input, sourceBinding: { base, worker, head }, hashSemanticValue: hash });
   const shapeChanges = unsupportedSourceShapeChanges(sheets, changed, hash);
   const mergedIndex = applyAtRuleBlockChanges(applyAtRuleBlockChanges(applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker), blockChanges.head), blockChanges.worker);
   const mergedSourceText = renderDeclarationIndex(mergedIndex);

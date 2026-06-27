@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { safeMergeCssSource } from '../dist/index.js';
 
 const cssMerged = safeMergeCssSource({
@@ -36,19 +37,52 @@ const cssSelectorMoveWeakEquivalence = safeMergeCssSource({
 assert.equal(cssSelectorMoveWeakEquivalence.status, 'blocked');
 assert.equal(cssSelectorMoveWeakEquivalence.admission.reasonCodes.includes('css-selector-target-rebase-unproved'), true);
 
+const selectorMoveBase = '.button { color: red; }\n';
+const selectorMoveWorker = '.primary { color: red; }\n';
+const selectorMoveHead = '.button { color: red; background-color: white; }\n';
+const cssSelectorMoveGraphOnly = safeMergeCssSource({
+  id: 'css_selector_target_move_graph_only',
+  sourcePath: 'button.css',
+  baseSourceText: selectorMoveBase,
+  workerSourceText: selectorMoveWorker,
+  headSourceText: selectorMoveHead,
+  selectorTargetGraphHash: 'target-graph-v1',
+  selectorTargetEquivalences: [{ sourcePath: 'button.css', fromSelectors: ['.button'], toSelectors: ['.primary'], fromSpecificity: [[0, 1, 0]], toSpecificity: [[0, 1, 0]], graphHash: 'target-graph-v1' }]
+});
+assert.equal(cssSelectorMoveGraphOnly.status, 'blocked');
+assert.equal(cssSelectorMoveGraphOnly.admission.reasonCodes.includes('css-selector-target-rebase-unproved'), true);
+
 const cssSelectorMoveRebase = safeMergeCssSource({
   id: 'css_selector_target_move_rebase',
   sourcePath: 'button.css',
-  baseSourceText: '.button { color: red; }\n',
-  workerSourceText: '.primary { color: red; }\n',
-  headSourceText: '.button { color: red; background-color: white; }\n',
+  baseSourceText: selectorMoveBase,
+  workerSourceText: selectorMoveWorker,
+  headSourceText: selectorMoveHead,
   selectorTargetGraphHash: 'target-graph-v1',
-  selectorTargetEquivalences: [{ sourcePath: 'button.css', fromSelectors: ['.button'], toSelectors: ['.primary'], fromSpecificity: [[0, 1, 0]], toSpecificity: [[0, 1, 0]], graphHash: 'target-graph-v1' }]
+  cssSelectorTargetProofs: [{
+    id: 'proof_selector_target_button_primary',
+    kind: 'css-source-bound-selector-target-proof',
+    status: 'passed',
+    sourcePath: 'button.css',
+    reasonCode: 'css-selector-target-rebase-unproved',
+    moveSide: 'worker',
+    rebasedSide: 'head',
+    fromSelectors: ['.button'],
+    toSelectors: ['.primary'],
+    fromSpecificity: [[0, 1, 0]],
+    toSpecificity: [[0, 1, 0]],
+    selectorTargetGraphHash: 'target-graph-v1',
+    baseSourceHash: hashSemanticValue(selectorMoveBase),
+    workerSourceHash: hashSemanticValue(selectorMoveWorker),
+    headSourceHash: hashSemanticValue(selectorMoveHead)
+  }]
 });
 assert.equal(cssSelectorMoveRebase.status, 'merged');
 assert.equal(cssSelectorMoveRebase.selectorTargetEvidence.rebasedChangeCount, 1);
 assert.equal(cssSelectorMoveRebase.selectorTargetEvidence.rebaseProofs[0].specificityInvariant, true);
 assert.equal(cssSelectorMoveRebase.selectorTargetEvidence.rebaseProofs[0].selectorTargetGraphHash, 'target-graph-v1');
+assert.equal(cssSelectorMoveRebase.selectorTargetEvidence.rebaseProofs[0].proofLevel, 'css-selector-target-source-bound');
+assert.equal(cssSelectorMoveRebase.selectorTargetEvidence.rebaseProofs[0].baseSourceHash, hashSemanticValue(selectorMoveBase));
 assert.match(cssSelectorMoveRebase.mergedSourceText, /\.primary \{/);
 assert.match(cssSelectorMoveRebase.mergedSourceText, /background-color: white/);
 assert.doesNotMatch(cssSelectorMoveRebase.mergedSourceText, /\.button \{/);

@@ -1,4 +1,4 @@
-import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; import type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; import type { CssSafeMergeShorthandExpansionEvidence, CssShorthandExpansionEvidence } from './shorthand-expansion.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; export type { CssSafeMergeChangedShorthandExpansion, CssSafeMergeShorthandExpansionEvidence, CssSafeMergeShorthandExpansionSideEvidence, CssShorthandExpansionEvidence, CssShorthandLonghandExpansion } from './shorthand-expansion.js';
+import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; import type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; import type { CssSafeMergeShorthandExpansionEvidence, CssShorthandExpansionEvidence } from './shorthand-expansion.js'; import type { CssSafeMergeSelectorTargetEvidence, CssSelectorTargetEquivalence, CssSelectorTargetProof } from './selector-target-proof.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; export type { CssSafeMergeChangedShorthandExpansion, CssSafeMergeShorthandExpansionEvidence, CssSafeMergeShorthandExpansionSideEvidence, CssShorthandExpansionEvidence, CssShorthandLonghandExpansion } from './shorthand-expansion.js'; export type { CssSafeMergeSelectorMove, CssSafeMergeSelectorTargetEvidence, CssSafeMergeSelectorTargetRebaseProof, CssSafeMergeSelectorTargetSideEvidence, CssSelectorTargetEquivalence, CssSelectorTargetProof } from './selector-target-proof.js';
 
 export interface CssProjectionOptions {
   readonly banner?: string;
@@ -260,33 +260,6 @@ export interface CssSafeMergeParserSideEvidence {
   readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number;
 }
 
-export interface CssSafeMergeSelectorTargetEvidence {
-  readonly kind: 'frontier.lang.cssSafeMergeSelectorTargetEvidence'; readonly version: 1; readonly selectorTargetGraphHashPresent: boolean; readonly parserBackedRuleSpans: boolean;
-  readonly selectorMoveCount: number; readonly workerSelectorMoves: number; readonly headSelectorMoves: number;
-  readonly sides: Readonly<Record<string, CssSafeMergeSelectorTargetSideEvidence>>;
-  readonly moves: Readonly<Record<'worker' | 'head', readonly CssSafeMergeSelectorMove[]>>;
-  readonly rebasedChangeCount?: number; readonly rebaseProofs?: readonly CssSafeMergeSelectorTargetRebaseProof[];
-}
-
-export interface CssSafeMergeSelectorTargetSideEvidence {
-  readonly ruleCount: number; readonly selectorCount: number; readonly declarationCount: number; readonly scopedRuleCount: number;
-  readonly selectorTargetGraphHashPresent: boolean; readonly parserBackedRuleSpans: boolean; readonly selectorSpecificityRecords: number;
-}
-
-export interface CssSafeMergeSelectorMove {
-  readonly side: string; readonly property: string; readonly beforeRuleKey: string; readonly afterRuleKey: string;
-  readonly beforeSelectors?: readonly string[]; readonly afterSelectors?: readonly string[]; readonly beforeScopes?: readonly string[]; readonly afterScopes?: readonly string[];
-  readonly beforeSpecificity?: readonly (readonly number[])[]; readonly afterSpecificity?: readonly (readonly number[])[]; readonly specificityInvariant: boolean; readonly declarationHash: string; readonly beforeSelectorTargetGraphHash?: string; readonly afterSelectorTargetGraphHash?: string; readonly selectorTargetGraphHashPresent: boolean;
-}
-
-export interface CssSafeMergeSelectorTargetRebaseProof {
-  readonly kind: 'css-selector-target-rebase'; readonly side: string; readonly fromRuleKey: string; readonly toRuleKey: string; readonly property: string; readonly cascadeKey: string; readonly selectorTargetGraphHash?: string; readonly specificityInvariant: true; readonly beforeSpecificity?: readonly (readonly number[])[]; readonly afterSpecificity?: readonly (readonly number[])[];
-}
-
-export interface CssSelectorTargetEquivalence {
-  readonly sourcePath?: string; readonly fromRuleKey?: string; readonly toRuleKey?: string; readonly fromSelectors?: readonly string[]; readonly toSelectors?: readonly string[]; readonly fromSpecificity?: readonly (readonly number[])[]; readonly toSpecificity?: readonly (readonly number[])[]; readonly graphHash?: string;
-}
-
 export interface CssSafeMergeInput {
   readonly id?: string; readonly sourcePath?: string; readonly baseSourceText?: string; readonly workerSourceText?: string; readonly headSourceText?: string;
   readonly cssModule?: boolean; readonly cssModules?: boolean; readonly generatedClassNameMap?: Readonly<Record<string, string>>;
@@ -301,6 +274,11 @@ export interface CssSafeMergeInput {
   readonly cssDependencyGraphProofsByPath?: Readonly<Record<string, CssDependencyGraphProof | readonly CssDependencyGraphProof[]>>; readonly cssSourceBoundDependencyGraphProofsByPath?: Readonly<Record<string, CssDependencyGraphProof | readonly CssDependencyGraphProof[]>>;
   readonly cssModuleContractProof?: CssModuleContractProof; readonly cssModuleContractProofs?: readonly CssModuleContractProof[]; readonly cssModuleContractProofsByPath?: Readonly<Record<string, CssModuleContractProof | readonly CssModuleContractProof[]>>; readonly cssSourceBoundModuleContractProof?: CssModuleContractProof; readonly cssSourceBoundModuleContractProofs?: readonly CssModuleContractProof[]; readonly cssSourceBoundModuleContractProofsByPath?: Readonly<Record<string, CssModuleContractProof | readonly CssModuleContractProof[]>>;
   readonly selectorTargetGraphHash?: string; readonly selectorTargetEquivalences?: readonly CssSelectorTargetEquivalence[];
+  readonly cssSelectorTargetProof?: CssSelectorTargetProof; readonly cssSelectorTargetProofs?: readonly CssSelectorTargetProof[]; readonly cssSelectorTargetProofsByPath?: Readonly<Record<string, CssSelectorTargetProof | readonly CssSelectorTargetProof[]>>;
+  readonly cssSourceBoundSelectorTargetProof?: CssSelectorTargetProof; readonly cssSourceBoundSelectorTargetProofs?: readonly CssSelectorTargetProof[]; readonly cssSourceBoundSelectorTargetProofsByPath?: Readonly<Record<string, CssSelectorTargetProof | readonly CssSelectorTargetProof[]>>;
+  readonly selectorTargetProof?: CssSelectorTargetProof; readonly selectorTargetProofs?: readonly CssSelectorTargetProof[]; readonly selectorTargetProofsByPath?: Readonly<Record<string, CssSelectorTargetProof | readonly CssSelectorTargetProof[]>>;
+  readonly selectorTargetRebaseProof?: CssSelectorTargetProof; readonly selectorTargetRebaseProofs?: readonly CssSelectorTargetProof[]; readonly selectorTargetRebaseProofsByPath?: Readonly<Record<string, CssSelectorTargetProof | readonly CssSelectorTargetProof[]>>;
+  readonly sourceBoundSelectorTargetProof?: CssSelectorTargetProof; readonly sourceBoundSelectorTargetProofs?: readonly CssSelectorTargetProof[]; readonly sourceBoundSelectorTargetProofsByPath?: Readonly<Record<string, CssSelectorTargetProof | readonly CssSelectorTargetProof[]>>;
   readonly baseGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly workerGeneratedClassNameMap?: Readonly<Record<string, string>>; readonly headGeneratedClassNameMap?: Readonly<Record<string, string>>;
   readonly baseGeneratedClassNameMapHash?: string; readonly workerGeneratedClassNameMapHash?: string; readonly headGeneratedClassNameMapHash?: string;
   readonly baseJsTsUseSiteGraphHash?: string; readonly workerJsTsUseSiteGraphHash?: string; readonly headJsTsUseSiteGraphHash?: string;
