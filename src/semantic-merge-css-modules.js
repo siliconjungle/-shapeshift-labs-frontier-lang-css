@@ -1,3 +1,5 @@
+import { atRuleOccurrenceKey } from './semantic-merge-at-rules.js';
+
 function sheetOptions(input, side, sourcePath) {
   const prefix = side === 'base' ? 'base' : side === 'worker' ? 'worker' : 'head';
   return {
@@ -165,6 +167,7 @@ function unsupportedSourceShapeChangesForSide(baseSheet, currentSheet, declarati
 
 function sourceShapeIndex(sheet, hash) {
   const result = new Map();
+  const atRuleOccurrences = new Map();
   for (const record of sheet.records ?? []) {
     if (record.kind === 'rule') {
       const ruleKey = ruleIdentityKey(record);
@@ -180,14 +183,16 @@ function sourceShapeIndex(sheet, hash) {
       });
     }
     if (record.kind === 'at-rule') {
-      const shapeKey = `at-rule:${[...(record.scopes ?? []), record.atRuleName, record.conditionText].join('::')}`;
+      const shapeKey = atRuleOccurrenceKey(record, atRuleOccurrences);
+      const opaqueHash = isOpaqueAtRuleBlock(record) ? record.rawTextHash : undefined;
       result.set(shapeKey, {
         kind: 'at-rule',
         atRuleName: record.atRuleName,
         conditionText: record.conditionText,
+        rawTextHash: opaqueHash,
         representedByDeclarations: false,
         unsupportedReasonCode: atRuleUnsupportedReasonCode(record),
-        hash: record.atRuleHash
+        hash: opaqueHash ?? record.atRuleHash
       });
     }
     if (record.kind === 'at-rule-statement') {
@@ -213,15 +218,19 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
 
 function sameContractChange(left, right) { return (left.after?.hash ?? '') === (right.after?.hash ?? '') && left.kind === right.kind; }
 function contractChangeDetails(change) { return { kind: change.kind, contractKind: (change.after ?? change.before)?.contractKind, name: (change.after ?? change.before)?.name, hash: change.after?.hash }; }
-function sourceShapeDetails(shape) { return shape ? { kind: shape.kind, selectors: shape.selectors, atRuleName: shape.atRuleName, conditionText: shape.conditionText, statementText: shape.statementText, representedByDeclarations: shape.representedByDeclarations } : undefined; }
+function sourceShapeDetails(shape) { return shape ? { kind: shape.kind, selectors: shape.selectors, atRuleName: shape.atRuleName, conditionText: shape.conditionText, statementText: shape.statementText, rawTextHash: shape.rawTextHash, representedByDeclarations: shape.representedByDeclarations } : undefined; }
 function sourceShapeChangeReason(before, after) {
   if (!before && after?.kind === 'at-rule') return 'css-atrule-new-scope-unsupported';
   if (before?.kind === 'at-rule' || after?.kind === 'at-rule') return after?.unsupportedReasonCode ?? before?.unsupportedReasonCode ?? 'css-atrule-condition-edit-unsupported';
   if (before?.kind === 'at-rule-statement' || after?.kind === 'at-rule-statement') return after?.unsupportedReasonCode ?? before?.unsupportedReasonCode ?? 'css-atrule-statement-unsupported';
   return 'css-source-shape-unsupported';
 }
-function atRuleUnsupportedReasonCode(record) { return record.atRuleName === 'layer' ? 'css-layer-name-edit-unsupported' : 'css-atrule-condition-edit-unsupported'; }
+function atRuleUnsupportedReasonCode(record) {
+  if (RuntimeAtRules.has(record.atRuleName)) return `css-${record.atRuleName}-runtime-equivalence-unproved`;
+  return record.atRuleName === 'layer' ? 'css-layer-name-edit-unsupported' : 'css-atrule-condition-edit-unsupported';
+}
 function atRuleStatementUnsupportedReasonCode(record) { return record.atRuleName === 'layer' ? 'css-layer-order-statement-unsupported' : 'css-atrule-statement-unsupported'; }
+function isOpaqueAtRuleBlock(record) { return record.kind === 'at-rule' && !ScopeAtRules.has(record.atRuleName) && typeof record.rawTextHash === 'string'; }
 function ruleIdentityKey(record) { return [...(record.scopes ?? []), record.selectors.join(',')].join('::'); }
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function uniqueProofGaps(values) {
@@ -231,3 +240,6 @@ function uniqueProofGaps(values) {
 }
 
 export { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeChanges, unsupportedSourceShapeConflicts };
+
+const RuntimeAtRules = new Set(['keyframes', 'font-face', 'page', 'property']);
+const ScopeAtRules = new Set(['media', 'supports', 'container', 'layer', 'scope']);

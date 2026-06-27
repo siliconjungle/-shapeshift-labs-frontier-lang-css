@@ -2,6 +2,7 @@ import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, uns
 import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
 import { mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
+import { applyAtRuleBlockChanges, atRuleBlockEntry, atRuleBlockOverlapConflicts, atRuleOccurrenceKey, changedAtRuleBlocks, renderAtRuleBlock, renderAtRuleStatement } from './semantic-merge-at-rules.js';
 import { declarationsOverlapByCssProperty, shorthandGroupForProperty } from './semantic-merge-shorthand.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
@@ -24,19 +25,24 @@ function safeMergeCssSource(input = {}, context = {}) {
     worker: changedDeclarations(indexes.base, indexes.worker, 'worker'),
     head: changedDeclarations(indexes.base, indexes.head, 'head')
   };
+  const blockChanges = {
+    worker: changedAtRuleBlocks(indexes.base, indexes.worker, 'worker'),
+    head: changedAtRuleBlocks(indexes.base, indexes.head, 'head')
+  };
   const moduleChanges = cssModuleContractChanges(sheets, hash);
   const proofConflicts = proofGapConflicts(id, sourcePath, changed, indexes);
   const parserConflicts = parserErrorConflicts(id, sourcePath, sheets);
   const overlapConflicts = [
     ...overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head),
-    ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head)
+    ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head),
+    ...atRuleBlockOverlapConflicts(id, sourcePath, blockChanges.worker, blockChanges.head, conflict)
   ];
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const parserEvidence = mergeParserEvidence(sheets);
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
   const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, input);
   const shapeChanges = unsupportedSourceShapeChanges(sheets, changed, hash);
-  const mergedIndex = applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker);
+  const mergedIndex = applyAtRuleBlockChanges(applyAtRuleBlockChanges(applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker), blockChanges.head), blockChanges.worker);
   const mergedSourceText = renderDeclarationIndex(mergedIndex);
   const cascadeRuntimeAdmission = admitCascadeRuntimeProofs({
     id,
@@ -68,7 +74,15 @@ function declarationIndex(sheet) {
   const declarations = new Map();
   const order = [];
   const statements = [];
+  const atRuleBlocks = new Map();
+  const atRuleBlockOrder = [];
+  const atRuleOccurrences = new Map();
   for (const record of sheet.records) {
+    const block = atRuleBlockEntry(record, atRuleOccurrenceKey(record, atRuleOccurrences));
+    if (block) {
+      atRuleBlocks.set(block.key, block);
+      atRuleBlockOrder.push(block.key);
+    }
     if (record.kind === 'at-rule-statement') {
       statements.push({
         key: record.atRuleHash,
@@ -97,7 +111,7 @@ function declarationIndex(sheet) {
       order.push(entry.key);
     }
   }
-  return { declarations, order: unique(order), statements };
+  return { declarations, order: unique(order), statements, atRuleBlocks, atRuleBlockOrder: unique(atRuleBlockOrder) };
 }
 
 function changedDeclarations(baseIndex, currentIndex, side) {
@@ -210,7 +224,7 @@ function applyDeclarationChanges(index, changes) {
       if (!order.includes(change.key)) order.push(change.key);
     }
   }
-  return { declarations, order: order.filter((key) => declarations.has(key)), statements: index.statements ?? [] };
+  return { ...index, declarations, order: order.filter((key) => declarations.has(key)), statements: index.statements ?? [] };
 }
 
 function renderDeclarationIndex(index) {
@@ -222,24 +236,11 @@ function renderDeclarationIndex(index) {
   }
   const chunks = [];
   for (const statement of index.statements ?? []) renderAtRuleStatement(chunks, statement);
+  for (const key of index.atRuleBlockOrder ?? []) renderAtRuleBlock(chunks, index.atRuleBlocks.get(key));
   for (const declarations of groups.values()) {
     renderDeclarationGroup(chunks, declarations);
   }
   return `${chunks.join('\n').trimEnd()}\n`;
-}
-
-function renderAtRuleStatement(chunks, statement) {
-  let indent = 0;
-  for (const scope of statement.scopes ?? []) {
-    chunks.push(`${spaces(indent)}${scope} {`);
-    indent += 2;
-  }
-  chunks.push(`${spaces(indent)}${statement.statementText}`);
-  for (let index = (statement.scopes ?? []).length - 1; index >= 0; index -= 1) {
-    indent -= 2;
-    chunks.push(`${spaces(indent)}}`);
-  }
-  chunks.push('');
 }
 
 function renderDeclarationGroup(chunks, declarations) {

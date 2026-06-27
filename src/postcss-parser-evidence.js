@@ -100,6 +100,7 @@ function postcssAtRuleRecord(node, scopes, sourceHash, options) {
     atRuleName,
     conditionText,
     statementText: kind === 'at-rule-statement' ? rawText : undefined,
+    blockText: kind === 'at-rule' ? rawText : undefined,
     scopeKey: postcssAtRuleScopeKey(node),
     scopes,
     dependencyTokens: atRuleDependencyTokens(node, atRuleName),

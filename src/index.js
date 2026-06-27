@@ -141,7 +141,7 @@ function sourceMapEnvelope(ast, mappings, options) {
 }
 
 function sourceRef(node, extra = {}) { return { semanticNodeId: node.id, semanticNodeKind: node.kind, semanticNodeName: node.name, ...extra }; }
-function hashableCssRecord(record) { return { kind: record.kind, selectors: record.selectors, specificity: record.specificity, scopes: record.scopes, atRuleName: record.atRuleName, conditionText: record.conditionText, statementText: record.statementText, declarations: record.declarations?.map((item) => ({ property: item.property, value: item.value, important: item.important })), proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
+function hashableCssRecord(record) { return { kind: record.kind, selectors: record.selectors, specificity: record.specificity, scopes: record.scopes, atRuleName: record.atRuleName, conditionText: record.conditionText, statementText: record.statementText, blockTextHash: record.blockText ? record.rawTextHash : undefined, declarations: record.declarations?.map((item) => ({ property: item.property, value: item.value, important: item.important })), proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
 function cssIdentifier(value) { return String(value ?? 'unknown').replace(/[^A-Za-z0-9_-]/g, '-').replace(/^-+/, '') || 'unknown'; }
 function cssString(value) { return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 function typeName(type) { return typeof type === 'string' ? type : type?.name ?? type?.kind ?? 'unknown'; }
