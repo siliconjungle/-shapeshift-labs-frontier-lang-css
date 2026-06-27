@@ -114,7 +114,9 @@ function proofRecord(proof, change, sourcePath, binding, hash) {
     generatedClassNameMapHash: contract.generatedClassNameMapHash,
     jsTsUseSiteGraphHash: contract.jsTsUseSiteGraphHash,
     cssModuleCompositionGraphHash: contract.cssModuleCompositionGraphHash,
-    icssGraphHash: contract.icssGraphHash
+    icssGraphHash: contract.icssGraphHash,
+    bundlerTransformHash: proof.bundlerTransformHash,
+    sourceMapProofHash: proof.sourceMapProofHash
   };
 }
 
