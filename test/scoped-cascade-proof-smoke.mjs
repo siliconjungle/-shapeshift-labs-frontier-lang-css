@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
-import { safeMergeCssSource } from '../dist/index.js';
+import { parseCssSemanticSheet, safeMergeCssSource } from '../dist/index.js';
 
 const base = [
   '@container card (min-width: 300px) {',
@@ -40,6 +40,16 @@ const proof = {
   headSourceHash: hashSemanticValue(head),
   outputSourceHash: hashSemanticValue(output)
 };
+const shapeKey = '@container card (min-width: 300px)';
+const shapeGraphHash = 'hash_container_scope_shape_keyed';
+
+const shapeSheet = parseCssSemanticSheet(base, {
+  sourcePath: 'card.css',
+  scopedCascadeGraphHashesByShapeKey: { [shapeKey]: shapeGraphHash }
+});
+const shapeRule = shapeSheet.records.find((record) => record.kind === 'rule' && record.selectors?.includes('.button'));
+assert.equal(shapeRule.scopedCascadeGraphShapeKey, shapeKey);
+assert.equal(shapeRule.scopedCascadeGraphHash, shapeGraphHash);
 
 const hashOnly = safeMergeCssSource({
   id: 'css_container_scope_hash_only',
@@ -63,6 +73,35 @@ const wrongOutput = safeMergeCssSource({
 });
 assert.equal(wrongOutput.status, 'blocked');
 assert.equal(wrongOutput.conflicts.some((conflict) => conflict.details.reasonCode === 'css-scoped-cascade-equivalence-unproved'), true);
+
+const wrongShape = safeMergeCssSource({
+  id: 'css_container_scope_wrong_shape',
+  sourcePath: 'card.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: head,
+  scopedCascadeGraphHashesByShapeKey: { [shapeKey]: shapeGraphHash },
+  cssScopedCascadeProofs: [{ ...proof, scopedCascadeGraphHash: shapeGraphHash, scopedCascadeGraphShapeKey: '@media (min-width: 300px)' }]
+});
+assert.equal(wrongShape.status, 'blocked');
+assert.equal(wrongShape.conflicts.some((conflict) => conflict.code === 'css-scoped-cascade-proof-blocked'), true);
+
+const shapeKeyed = safeMergeCssSource({
+  id: 'css_container_scope_shape_keyed',
+  sourcePath: 'card.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: head,
+  scopedCascadeGraphHashesByShapeKey: { [shapeKey]: shapeGraphHash },
+  cssScopedCascadeProofs: [{
+    ...proof,
+    scopedCascadeGraphHash: undefined,
+    scopedCascadeGraphShapeKey: shapeKey,
+    scopedCascadeGraphHashesByShapeKey: { [shapeKey]: shapeGraphHash }
+  }]
+});
+assert.equal(shapeKeyed.status, 'merged');
+assert.equal(shapeKeyed.scopedCascadeProofs.every((record) => record.scopedCascadeGraphShapeKey === shapeKey), true);
 
 const proven = safeMergeCssSource({
   id: 'css_container_scope_proven',

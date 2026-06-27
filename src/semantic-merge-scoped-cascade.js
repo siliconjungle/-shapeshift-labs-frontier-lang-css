@@ -23,11 +23,13 @@ function scopedCascadeChangesForSide(changes, side, baseIndex) {
       ruleKey: entry.ruleKey,
       selectors: entry.selectors,
       scopes: entry.scopes,
+      scopedCascadeGraphShapeKey: entry.scopedCascadeGraphShapeKey,
       property: entry.property,
       specificity: entry.specificity,
       scopedCascadeGraphReady: graphRoles.every((item) => typeof item.hash === 'string'),
       scopedCascadeGraphHash: graphRoles.find((item) => typeof item.hash === 'string')?.hash,
       scopedCascadeGraphHashes: Object.fromEntries(graphRoles.map((item) => [item.role, item.hash]).filter(([, value]) => typeof value === 'string')),
+      scopedCascadeGraphShapeKeys: Object.fromEntries(graphRoles.map((item) => [item.role, item.shapeKey]).filter(([, value]) => typeof value === 'string')),
       before: scopedCascadeDeclarationDetails(change.before),
       after: scopedCascadeDeclarationDetails(change.after)
     }];
@@ -93,11 +95,23 @@ function scopedCascadeGraphHashMatches(proof, change) {
   if (!hashes.length) return false;
   return hashes.every(([role, expected]) => {
     const sharedHash = firstString(proof.scopedCascadeGraphHash, proof.graphHash);
-    return sharedHash === expected ||
-      proof[`${role}ScopedCascadeGraphHash`] === expected ||
-      proof.scopedCascadeGraphHashes?.[role] === expected ||
-      proof.graphHashes?.[role] === expected;
+    const shapeKey = change.scopedCascadeGraphShapeKeys?.[role] ?? change.scopedCascadeGraphShapeKey;
+    return proof.scopedCascadeGraphHashesByShapeKey?.[shapeKey] === expected ||
+      proof.graphHashesByShapeKey?.[shapeKey] === expected ||
+      proof.scopedCascadeGraphHashesByRoleAndShape?.[role]?.[shapeKey] === expected ||
+      ((sharedHash === expected || proof[`${role}ScopedCascadeGraphHash`] === expected || proof.scopedCascadeGraphHashes?.[role] === expected || proof.graphHashes?.[role] === expected) && proofShapeMatches(proof, shapeKey));
   });
+}
+
+function proofShapeMatches(proof, shapeKey) {
+  if (!shapeKey) return true;
+  if (proof.scopedCascadeGraphShapeKey === shapeKey || proof.shapeKey === shapeKey) return true;
+  if (proof.scopedCascadeGraphShapeKeys?.includes?.(shapeKey) || proof.shapeKeys?.includes?.(shapeKey)) return true;
+  return !hasProofShapeBinding(proof);
+}
+
+function hasProofShapeBinding(proof) {
+  return Boolean(proof.scopedCascadeGraphShapeKey || proof.shapeKey || proof.scopedCascadeGraphShapeKeys || proof.shapeKeys || proof.scopedCascadeGraphHashesByShapeKey || proof.graphHashesByShapeKey || proof.scopedCascadeGraphHashesByRoleAndShape);
 }
 
 function scopedCascadeProofRecord(proof, change, sourcePath, binding, hash) {
@@ -112,6 +126,7 @@ function scopedCascadeProofRecord(proof, change, sourcePath, binding, hash) {
     ruleKey: change.ruleKey,
     property: change.property,
     scopes: change.scopes,
+    scopedCascadeGraphShapeKey: change.scopedCascadeGraphShapeKey,
     sourcePath,
     scopedCascadeGraphHash: change.scopedCascadeGraphHash,
     scopedCascadeGraphHashes: change.scopedCascadeGraphHashes,
@@ -124,13 +139,13 @@ function scopedCascadeProofRecord(proof, change, sourcePath, binding, hash) {
 
 function scopedCascadeGraphRoles(change, side) {
   return [
-    change.before?.scopedCascadeGraphHash ? { role: 'base', hash: change.before.scopedCascadeGraphHash } : undefined,
-    change.after?.scopedCascadeGraphHash ? { role: side, hash: change.after.scopedCascadeGraphHash } : undefined
+    change.before?.scopedCascadeGraphHash ? { role: 'base', hash: change.before.scopedCascadeGraphHash, shapeKey: change.before.scopedCascadeGraphShapeKey } : undefined,
+    change.after?.scopedCascadeGraphHash ? { role: side, hash: change.after.scopedCascadeGraphHash, shapeKey: change.after.scopedCascadeGraphShapeKey } : undefined
   ].filter(Boolean);
 }
 
 function scopedCascadeDeclarationDetails(entry) {
-  return entry ? { property: entry.property, value: entry.value, ruleKey: entry.ruleKey, cascadeKey: entry.key, scopes: entry.scopes, scopedCascadeGraphHash: entry.scopedCascadeGraphHash } : undefined;
+  return entry ? { property: entry.property, value: entry.value, ruleKey: entry.ruleKey, cascadeKey: entry.key, scopes: entry.scopes, scopedCascadeGraphShapeKey: entry.scopedCascadeGraphShapeKey, scopedCascadeGraphHash: entry.scopedCascadeGraphHash } : undefined;
 }
 
 function scopedCascadeReasonCodes(scopes = []) {

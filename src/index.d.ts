@@ -13,6 +13,14 @@ export interface CssProjectionOptions {
   readonly cssModuleCompositionGraphHash?: string;
   readonly icssGraphHash?: string;
   readonly scopedCascadeGraphHash?: string;
+  readonly scopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly cssScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly baseScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly workerScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly headScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly baseCssScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly workerCssScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly headCssScopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
   readonly cssScopedCascadeProof?: CssScopedCascadeProof; readonly cssScopedCascadeProofs?: readonly CssScopedCascadeProof[];
   readonly cssSourceBoundScopedCascadeProof?: CssScopedCascadeProof; readonly cssSourceBoundScopedCascadeProofs?: readonly CssScopedCascadeProof[];
   readonly cssCascadeRuntimeProof?: CssCascadeRuntimeProof; readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProof[];
@@ -129,6 +137,7 @@ export interface CssSemanticRecord {
   readonly scopeKey?: string;
   readonly statementText?: string;
   readonly blockText?: string;
+  readonly scopedCascadeGraphShapeKey?: string;
   readonly scopedCascadeGraphHash?: string;
   readonly selectorTargetGraphHash?: string;
   readonly sourceSpan: CssSourceSpan;
@@ -256,12 +265,12 @@ export interface CssSafeMergeResult {
 export interface CssSafeMergeParserEvidence {
   readonly kind: 'frontier.lang.cssSafeMergeParserEvidence'; readonly version: 1; readonly parserNames: readonly string[];
   readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
-  readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number; readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly scopedCascadeGraphShapeHashPresent?: boolean; readonly parseErrors: number; readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
 }
 
 export interface CssSafeMergeParserSideEvidence {
   readonly parserName: string; readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
-  readonly scopedCascadeGraphHashPresent: boolean; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly scopedCascadeGraphShapeHashPresent?: boolean; readonly scopedCascadeGraphShapeKeys?: number; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number;
 }
 
 export interface CssSafeMergeInput {

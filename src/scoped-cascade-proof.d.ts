@@ -16,6 +16,10 @@ export interface CssScopedCascadeProof {
   readonly scopes?: readonly string[];
   readonly property?: string;
   readonly properties?: readonly string[];
+  readonly scopedCascadeGraphShapeKey?: string;
+  readonly scopedCascadeGraphShapeKeys?: readonly string[];
+  readonly shapeKey?: string;
+  readonly shapeKeys?: readonly string[];
   readonly scopedCascadeGraphHash?: string;
   readonly graphHash?: string;
   readonly baseScopedCascadeGraphHash?: string;
@@ -23,6 +27,9 @@ export interface CssScopedCascadeProof {
   readonly headScopedCascadeGraphHash?: string;
   readonly scopedCascadeGraphHashes?: Readonly<Record<string, string>>;
   readonly graphHashes?: Readonly<Record<string, string>>;
+  readonly scopedCascadeGraphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly graphHashesByShapeKey?: Readonly<Record<string, string>>;
+  readonly scopedCascadeGraphHashesByRoleAndShape?: Readonly<Record<string, Readonly<Record<string, string>>>>;
   readonly baseSourceText?: string; readonly workerSourceText?: string; readonly headSourceText?: string; readonly outputSourceText?: string; readonly mergedSourceText?: string;
   readonly baseSourceHash?: string; readonly workerSourceHash?: string; readonly headSourceHash?: string; readonly outputSourceHash?: string; readonly mergedSourceHash?: string;
   readonly sourceTexts?: Readonly<Record<string, string>>;
@@ -42,9 +49,11 @@ export interface CssScopedCascadeProofRecord {
   readonly ruleKey?: string;
   readonly property?: string;
   readonly scopes?: readonly string[];
+  readonly scopedCascadeGraphShapeKey?: string;
   readonly sourcePath?: string;
   readonly scopedCascadeGraphHash?: string;
   readonly scopedCascadeGraphHashes?: Readonly<Record<string, string>>;
+  readonly scopedCascadeGraphShapeKeys?: Readonly<Record<string, string>>;
   readonly baseSourceHash?: string;
   readonly workerSourceHash?: string;
   readonly headSourceHash?: string;

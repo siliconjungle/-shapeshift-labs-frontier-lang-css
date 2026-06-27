@@ -106,6 +106,7 @@ function declarationIndex(sheet, hash) {
         declarationOrdinal: declaration.ordinal,
         declarationHash: declaration.declarationHash,
         shorthandExpansion: deterministicShorthandExpansion(declaration.property, declaration.value, hash),
+        scopedCascadeGraphShapeKey: record.scopedCascadeGraphShapeKey,
         scopedCascadeGraphHash: record.scopedCascadeGraphHash,
         selectorTargetGraphHash: record.selectorTargetGraphHash,
         proofGaps: proofGapsForDeclaration(record, declaration)
@@ -163,6 +164,7 @@ function mergeParserEvidence(sheets) {
     parserBackedDeclarationSpans: entries.every(([, evidence]) => evidence.parserBackedDeclarationSpans === true),
     parserBackedTriviaHashes: entries.every(([, evidence]) => evidence.parserBackedTriviaHashes === true),
     scopedCascadeGraphHashPresent: entries.every(([, evidence]) => evidence.scopedCascadeGraphHashPresent === true),
+    scopedCascadeGraphShapeHashPresent: entries.every(([, evidence]) => evidence.scopedCascadeGraphShapeHashPresent === true),
     parseErrors: entries.reduce((sum, [, evidence]) => sum + evidence.parseErrors, 0),
     sides: Object.fromEntries(entries)
   };
@@ -178,6 +180,8 @@ function sheetParserEvidence(sheet) {
     parserBackedDeclarationSpans: declarations.some((declaration) => declaration.sourceSpan?.startOffset !== undefined),
     parserBackedTriviaHashes: records.some((record) => record.parser === 'postcss' && typeof record.rawTextHash === 'string'),
     scopedCascadeGraphHashPresent: records.every((record) => !(record.scopes?.length) || Boolean(record.scopedCascadeGraphHash)),
+    scopedCascadeGraphShapeHashPresent: records.every((record) => !(record.scopes?.length) || Boolean(record.scopedCascadeGraphHash && record.scopedCascadeGraphShapeKey)),
+    scopedCascadeGraphShapeKeys: unique(records.filter((record) => record.scopes?.length).map((record) => record.scopedCascadeGraphShapeKey)).length,
     parseErrors: sheet.parser?.parseErrors?.length ?? 0,
     recordCount: records.length,
     declarationCount: declarations.length

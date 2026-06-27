@@ -12,6 +12,7 @@ function sheetOptions(input, side, sourcePath) {
     cssModuleCompositionGraphHash: input[`${prefix}CssModuleCompositionGraphHash`] ?? input.cssModuleCompositionGraphHash,
     icssGraphHash: input[`${prefix}IcssGraphHash`] ?? input.icssGraphHash,
     scopedCascadeGraphHash: input[`${prefix}ScopedCascadeGraphHash`] ?? input.scopedCascadeGraphHash,
+    scopedCascadeGraphHashesByShapeKey: input[`${prefix}ScopedCascadeGraphHashesByShapeKey`] ?? input[`${prefix}CssScopedCascadeGraphHashesByShapeKey`] ?? input.scopedCascadeGraphHashesByShapeKey ?? input.cssScopedCascadeGraphHashesByShapeKey,
     selectorTargetGraphHash: input[`${prefix}SelectorTargetGraphHash`] ?? input.selectorTargetGraphHash
   };
 }

@@ -42,9 +42,11 @@ function postcssRuleRecord(node, scopes, sourceHash, options) {
   const selectors = String(node.selector ?? '').split(',').map((selector) => selector.trim()).filter(Boolean);
   const declarations = (node.nodes ?? []).filter((child) => child.type === 'decl').map(postcssDeclaration);
   const nestedChildren = (node.nodes ?? []).filter((child) => child.type !== 'decl' && child.type !== 'comment');
+  const scopedCascadeGraphShapeKey = scopedCascadeGraphShapeKeyForScopes(scopes);
+  const scopedCascadeGraphHash = scopedCascadeGraphHashForShape(scopedCascadeGraphShapeKey, options);
   const proofGaps = [
     ...declarations.filter((declaration) => ShorthandProperties.has(declaration.property)).map((declaration) => proofGap('css-shorthand-expansion-unproved', `CSS shorthand ${declaration.property} needs longhand expansion evidence.`)),
-    ...scopes.length && !options.scopedCascadeGraphHash ? [proofGap('css-scoped-cascade-equivalence-unproved', 'Scoped cascade equivalence requires browser/style evidence.')] : [],
+    ...scopes.length && !scopedCascadeGraphHash ? [proofGap('css-scoped-cascade-equivalence-unproved', 'Scoped cascade equivalence requires browser/style evidence.')] : [],
     ...nestedChildren.length ? [proofGap('css-nesting-semantic-unproved', 'CSS nested rule semantics require nesting expansion evidence.')] : []
   ];
   return compactRecord({
@@ -60,7 +62,8 @@ function postcssRuleRecord(node, scopes, sourceHash, options) {
       declarationHash: hashSemanticValue({ kind: 'frontier.lang.css.declaration.v2.postcss', scopes, selectors, property: declaration.property, rawProperty: declaration.rawProperty, value: declaration.value, important: declaration.important })
     })),
     customProperties: declarations.filter((declaration) => declaration.property.startsWith('--')).map((declaration) => declaration.property),
-    scopedCascadeGraphHash: scopes.length ? options.scopedCascadeGraphHash : undefined,
+    scopedCascadeGraphShapeKey,
+    scopedCascadeGraphHash,
     selectorTargetGraphHash: options.selectorTargetGraphHash,
     sourceSpan: sourceSpanFromPostcss(node.source, options.sourcePath),
     sourceHash,
@@ -89,9 +92,12 @@ function postcssAtRuleRecord(node, scopes, sourceHash, options) {
   const atRuleName = String(node.name ?? 'unknown').toLowerCase();
   const conditionText = String(node.params ?? '').trim();
   const rawText = rawPostcssText(node);
+  const scopeKey = postcssAtRuleScopeKey(node);
+  const scopedCascadeGraphShapeKey = ScopeAtRules.has(atRuleName) ? scopedCascadeGraphShapeKeyForScopes([...scopes, scopeKey]) : undefined;
+  const scopedCascadeGraphHash = scopedCascadeGraphHashForShape(scopedCascadeGraphShapeKey, options);
   const proofGaps = [];
   if (RuntimeAtRules.has(atRuleName)) proofGaps.push(proofGap(`css-${atRuleName}-runtime-equivalence-unproved`, `CSS @${atRuleName} semantics require browser evidence.`));
-  if (ScopeAtRules.has(atRuleName) && !options.scopedCascadeGraphHash) proofGaps.push(proofGap(`css-${atRuleName}-cascade-scope-unproved`, `CSS @${atRuleName} scoped cascade requires condition evaluation evidence.`));
+  if (ScopeAtRules.has(atRuleName) && !scopedCascadeGraphHash) proofGaps.push(proofGap(`css-${atRuleName}-cascade-scope-unproved`, `CSS @${atRuleName} scoped cascade requires condition evaluation evidence.`));
   if (!node.nodes?.length && atRuleName === 'layer') proofGaps.push(proofGap('css-layer-order-statement-unsupported', 'CSS @layer statement order requires cascade order evidence.'));
   else if (!node.nodes?.length) proofGaps.push(proofGap(`css-${atRuleName}-statement-equivalence-unproved`, `CSS @${atRuleName} statement semantics require host evidence.`));
   const kind = node.nodes?.length ? 'at-rule' : 'at-rule-statement';
@@ -101,10 +107,11 @@ function postcssAtRuleRecord(node, scopes, sourceHash, options) {
     conditionText,
     statementText: kind === 'at-rule-statement' ? rawText : undefined,
     blockText: kind === 'at-rule' ? rawText : undefined,
-    scopeKey: postcssAtRuleScopeKey(node),
+    scopeKey,
     scopes,
     dependencyTokens: atRuleDependencyTokens(node, atRuleName),
-    scopedCascadeGraphHash: ScopeAtRules.has(atRuleName) ? options.scopedCascadeGraphHash : undefined,
+    scopedCascadeGraphShapeKey,
+    scopedCascadeGraphHash,
     sourceSpan: sourceSpanFromPostcss(node.source, options.sourcePath),
     sourceHash,
     rawTextHash: hashSemanticValue({ kind: 'frontier.lang.css.rawAtRuleText.v1', text: rawText }),
@@ -116,6 +123,19 @@ function postcssAtRuleRecord(node, scopes, sourceHash, options) {
 
 function postcssAtRuleScopeKey(node) {
   return `@${String(node.name ?? 'unknown').toLowerCase()} ${String(node.params ?? '').trim()}`.trim();
+}
+
+function scopedCascadeGraphShapeKeyForScopes(scopes = []) {
+  return scopes.length ? scopes.join('::') : undefined;
+}
+
+function scopedCascadeGraphHashForShape(shapeKey, options) {
+  if (!shapeKey) return undefined;
+  return scopedCascadeGraphHashesByShapeKey(options)?.[shapeKey] ?? options.scopedCascadeGraphHash;
+}
+
+function scopedCascadeGraphHashesByShapeKey(options) {
+  return options.scopedCascadeGraphHashesByShapeKey ?? options.cssScopedCascadeGraphHashesByShapeKey ?? options.scopedCascadeGraphHashes;
 }
 
 function atRuleDependencyTokens(node, atRuleName) {
