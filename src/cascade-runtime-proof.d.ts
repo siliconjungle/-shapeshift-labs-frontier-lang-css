@@ -27,6 +27,11 @@ export interface CssCascadeRuntimeProof {
   readonly evidence?: CssCascadeRuntimeProofEvidenceRef;
   readonly runtimeEvidence?: CssCascadeRuntimeProofEvidenceRef;
   readonly browserEvidence?: CssCascadeRuntimeProofEvidenceRef;
+  readonly runtimeEvidenceBound?: boolean;
+  readonly browserCascadeEquivalenceClaim?: boolean;
+  readonly browserRenderEquivalenceClaim?: boolean;
+  readonly semanticEquivalenceClaim?: boolean;
+  readonly autoMergeClaim?: boolean;
 }
 
 export interface CssCascadeRuntimeProofEvidenceRef {
@@ -37,6 +42,14 @@ export interface CssCascadeRuntimeProofEvidenceRef {
   readonly hash?: string;
   readonly evidenceHash?: string;
   readonly signals?: readonly string[] | Readonly<Record<string, boolean>>;
+}
+
+export interface CssCascadeRuntimeProofInput extends Partial<CssCascadeRuntimeProof> {
+  readonly base?: string;
+  readonly worker?: string;
+  readonly head?: string;
+  readonly output?: string;
+  readonly merged?: string;
 }
 
 export interface CssCascadeRuntimeProofRecord {
@@ -63,3 +76,5 @@ export interface CssCascadeRuntimeProofRecord {
   readonly semanticEquivalenceClaim: false;
   readonly autoMergeClaim: false;
 }
+
+export declare function createCssCascadeRuntimeProof(input?: CssCascadeRuntimeProofInput): CssCascadeRuntimeProof;
