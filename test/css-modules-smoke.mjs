@@ -111,10 +111,13 @@ const cssModuleHashOnlyProof = safeMergeCssSource({
   workerSourceText: cssModuleMergeWorkerAddsExport,
   headSourceText: cssModuleMergeHeadChangesStyle,
   generatedClassNameMap: { root: 'Button_root__hash', label: 'Button_label__hash' },
-  jsTsUseSiteGraphHash: 'hash_css_module_use_sites'
+  jsTsUseSiteGraphHash: 'hash_css_module_use_sites',
+  includeBlockedMergeCandidate: true
 });
 assert.equal(cssModuleHashOnlyProof.status, 'blocked');
 assert.equal(cssModuleHashOnlyProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-module-contract-source-proof-unproved'), true);
+assert.equal(cssModuleHashOnlyProof.candidateMergedSourceText, cssModuleMergeOutput);
+assert.equal(typeof cssModuleHashOnlyProof.candidateMergedSourceHash, 'string');
 
 const cssModuleContractMerge = safeMergeCssSource({
   id: 'css_module_contract_merge',
