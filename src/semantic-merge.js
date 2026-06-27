@@ -1,6 +1,7 @@
 import { cssModuleContractChanges, sheetOptions, unsupportedSourceShapeChanges } from './semantic-merge-css-modules.js';
 import { admitCssModuleContractProofs } from './semantic-merge-css-module-proofs.js';
 import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
+import { ScopedCascadeProofGapCodes, admitScopedCascadeProofs, scopedCascadeChanges } from './semantic-merge-scoped-cascade.js';
 import { admitCssDependencyGraphProofs, mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
 import { applyAtRuleBlockChanges, atRuleBlockEntry, atRuleBlockOverlapConflicts, atRuleOccurrenceKey, changedAtRuleBlocks, renderAtRuleBlock, renderAtRuleStatement } from './semantic-merge-at-rules.js';
@@ -47,20 +48,15 @@ function safeMergeCssSource(input = {}, context = {}) {
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
   const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, { ...input, sourceBinding: { base, worker, head }, hashSemanticValue: hash });
   const shapeChanges = unsupportedSourceShapeChanges(sheets, changed, hash);
+  const scopedChanges = scopedCascadeChanges(selectorTargetPlan.changed, indexes);
   const mergedIndex = applyAtRuleBlockChanges(applyAtRuleBlockChanges(applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker), blockChanges.head), blockChanges.worker);
   const mergedSourceText = renderDeclarationIndex(mergedIndex);
-  const cascadeRuntimeAdmission = admitCascadeRuntimeProofs({
-    id,
-    sourcePath,
-    input,
-    sourceShapeChanges: shapeChanges,
-    binding: { base, worker, head, output: mergedSourceText },
-    hash
-  });
+  const scopedCascadeAdmission = admitScopedCascadeProofs({ id, sourcePath, input, changes: scopedChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
+  const cascadeRuntimeAdmission = admitCascadeRuntimeProofs({ id, sourcePath, input, sourceShapeChanges: shapeChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
   const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
   const cssModuleAdmission = admitCssModuleContractProofs({ id, sourcePath, input, moduleChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
-  const conflicts = [...parserConflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...cssModuleAdmission.conflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, shorthandExpansionEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cssModuleContractProofs: cssModuleAdmission.proofs, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs, ...blockedMergeCandidate(input, mergedSourceText, hash) });
+  const conflicts = [...parserConflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...cssModuleAdmission.conflicts, ...scopedCascadeAdmission.conflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, shorthandExpansionEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cssModuleContractProofs: cssModuleAdmission.proofs, scopedCascadeProofs: scopedCascadeAdmission.proofs, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs, ...blockedMergeCandidate(input, mergedSourceText, hash) });
   return merged(id, sourcePath, mergedSourceText, 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
     workerSheetHash: sheets.worker.sheetHash,
@@ -74,6 +70,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     dependencyGraphEvidence,
     selectorTargetEvidence: selectorTargetPlan.evidence,
     cssModuleContractProofs: cssModuleAdmission.proofs,
+    scopedCascadeProofs: scopedCascadeAdmission.proofs,
     cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs,
     dependencyGraphProofs: dependencyGraphAdmission.proofs,
     browserCascadeEquivalenceClaim: cascadeRuntimeAdmission.proofs.length > 0
@@ -109,6 +106,7 @@ function declarationIndex(sheet, hash) {
         declarationOrdinal: declaration.ordinal,
         declarationHash: declaration.declarationHash,
         shorthandExpansion: deterministicShorthandExpansion(declaration.property, declaration.value, hash),
+        scopedCascadeGraphHash: record.scopedCascadeGraphHash,
         selectorTargetGraphHash: record.selectorTargetGraphHash,
         proofGaps: proofGapsForDeclaration(record, declaration)
       };
@@ -209,6 +207,7 @@ function shorthandOverlapConflicts(id, sourcePath, workerChanges, headChanges) {
 }
 
 function canAdmitProofGap(gap, entry, changed, indexes) {
+  if (ScopedCascadeProofGapCodes.has(gap.code)) return true;
   if (gap.code !== 'css-shorthand-expansion-unproved' || !entry) return false;
   const group = shorthandGroupForProperty(entry.property);
   if (!group || entry.shorthandExpansion?.status !== 'expanded' || hasRelatedExistingDeclaration(entry, indexes)) return false;
@@ -296,7 +295,7 @@ function result(id, sourcePath, status, body) {
       reviewRequired: status !== 'merged',
       reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
       browserCascadeEquivalenceClaim: browserCascadeEquivalenceClaim || undefined,
-      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined, cssDependencyGraphProofs: body.dependencyGraphProofs?.length ? body.dependencyGraphProofs : undefined, cssModuleContractProofs: body.cssModuleContractProofs?.length ? body.cssModuleContractProofs : undefined
+      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined, cssScopedCascadeProofs: body.scopedCascadeProofs?.length ? body.scopedCascadeProofs : undefined, cssDependencyGraphProofs: body.dependencyGraphProofs?.length ? body.dependencyGraphProofs : undefined, cssModuleContractProofs: body.cssModuleContractProofs?.length ? body.cssModuleContractProofs : undefined
     }
   };
 }

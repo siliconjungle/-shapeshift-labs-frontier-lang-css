@@ -1,4 +1,4 @@
-import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; import type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; import type { CssSafeMergeShorthandExpansionEvidence, CssShorthandExpansionEvidence } from './shorthand-expansion.js'; import type { CssSafeMergeSelectorTargetEvidence, CssSelectorTargetEquivalence, CssSelectorTargetProof } from './selector-target-proof.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; export type { CssSafeMergeChangedShorthandExpansion, CssSafeMergeShorthandExpansionEvidence, CssSafeMergeShorthandExpansionSideEvidence, CssShorthandExpansionEvidence, CssShorthandLonghandExpansion } from './shorthand-expansion.js'; export type { CssSafeMergeSelectorMove, CssSafeMergeSelectorTargetEvidence, CssSafeMergeSelectorTargetRebaseProof, CssSafeMergeSelectorTargetSideEvidence, CssSelectorTargetEquivalence, CssSelectorTargetProof } from './selector-target-proof.js';
+import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; import type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; import type { CssScopedCascadeProof, CssScopedCascadeProofRecord } from './scoped-cascade-proof.js'; import type { CssSafeMergeShorthandExpansionEvidence, CssShorthandExpansionEvidence } from './shorthand-expansion.js'; import type { CssSafeMergeSelectorTargetEvidence, CssSelectorTargetEquivalence, CssSelectorTargetProof } from './selector-target-proof.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssModuleContractProof, CssModuleContractProofRecord } from './css-module-contract-proof.js'; export type { CssScopedCascadeProof, CssScopedCascadeProofRecord } from './scoped-cascade-proof.js'; export type { CssSafeMergeChangedShorthandExpansion, CssSafeMergeShorthandExpansionEvidence, CssSafeMergeShorthandExpansionSideEvidence, CssShorthandExpansionEvidence, CssShorthandLonghandExpansion } from './shorthand-expansion.js'; export type { CssSafeMergeSelectorMove, CssSafeMergeSelectorTargetEvidence, CssSafeMergeSelectorTargetRebaseProof, CssSafeMergeSelectorTargetSideEvidence, CssSelectorTargetEquivalence, CssSelectorTargetProof } from './selector-target-proof.js';
 
 export interface CssProjectionOptions {
   readonly banner?: string;
@@ -13,6 +13,8 @@ export interface CssProjectionOptions {
   readonly cssModuleCompositionGraphHash?: string;
   readonly icssGraphHash?: string;
   readonly scopedCascadeGraphHash?: string;
+  readonly cssScopedCascadeProof?: CssScopedCascadeProof; readonly cssScopedCascadeProofs?: readonly CssScopedCascadeProof[];
+  readonly cssSourceBoundScopedCascadeProof?: CssScopedCascadeProof; readonly cssSourceBoundScopedCascadeProofs?: readonly CssScopedCascadeProof[];
   readonly cssCascadeRuntimeProof?: CssCascadeRuntimeProof; readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProof[];
   readonly cssSourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly cssSourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[];
   readonly selectorTargetGraphHash?: string;
@@ -228,6 +230,7 @@ export interface CssSafeMergeAdmission {
   readonly reviewRequired: boolean; readonly reasonCodes: readonly string[];
   readonly browserCascadeEquivalenceClaim?: true;
   readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
+  readonly cssScopedCascadeProofs?: readonly CssScopedCascadeProofRecord[];
   readonly cssDependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
   readonly cssModuleContractProofs?: readonly CssModuleContractProofRecord[];
 }
@@ -245,6 +248,7 @@ export interface CssSafeMergeResult {
   readonly workerChangedCssModuleContracts?: number; readonly headChangedCssModuleContracts?: number;
   readonly parserEvidence?: CssSafeMergeParserEvidence; readonly shorthandExpansionEvidence?: CssSafeMergeShorthandExpansionEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence; readonly dependencyGraphEvidence?: CssDependencyGraphEvidence;
   readonly cssModuleContractProofs?: readonly CssModuleContractProofRecord[];
+  readonly scopedCascadeProofs?: readonly CssScopedCascadeProofRecord[];
   readonly cascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
   readonly dependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
 }
@@ -264,6 +268,10 @@ export interface CssSafeMergeInput {
   readonly id?: string; readonly sourcePath?: string; readonly baseSourceText?: string; readonly workerSourceText?: string; readonly headSourceText?: string;
   readonly cssModule?: boolean; readonly cssModules?: boolean; readonly generatedClassNameMap?: Readonly<Record<string, string>>;
   readonly generatedClassNameMapHash?: string; readonly jsTsUseSiteGraphHash?: string; readonly cssModuleCompositionGraphHash?: string; readonly icssGraphHash?: string; readonly scopedCascadeGraphHash?: string;
+  readonly cssScopedCascadeProof?: CssScopedCascadeProof; readonly cssScopedCascadeProofs?: readonly CssScopedCascadeProof[]; readonly cssScopedCascadeProofsByPath?: Readonly<Record<string, CssScopedCascadeProof | readonly CssScopedCascadeProof[]>>;
+  readonly cssSourceBoundScopedCascadeProof?: CssScopedCascadeProof; readonly cssSourceBoundScopedCascadeProofs?: readonly CssScopedCascadeProof[]; readonly cssSourceBoundScopedCascadeProofsByPath?: Readonly<Record<string, CssScopedCascadeProof | readonly CssScopedCascadeProof[]>>;
+  readonly scopedCascadeProof?: CssScopedCascadeProof; readonly scopedCascadeProofs?: readonly CssScopedCascadeProof[]; readonly scopedCascadeProofsByPath?: Readonly<Record<string, CssScopedCascadeProof | readonly CssScopedCascadeProof[]>>;
+  readonly sourceBoundScopedCascadeProof?: CssScopedCascadeProof; readonly sourceBoundScopedCascadeProofs?: readonly CssScopedCascadeProof[]; readonly sourceBoundScopedCascadeProofsByPath?: Readonly<Record<string, CssScopedCascadeProof | readonly CssScopedCascadeProof[]>>;
   readonly cssCascadeRuntimeProof?: CssCascadeRuntimeProof; readonly cssCascadeRuntimeProofs?: readonly CssCascadeRuntimeProof[]; readonly cssCascadeRuntimeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
   readonly cssSourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly cssSourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[];
   readonly cssSourceBoundCascadeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;

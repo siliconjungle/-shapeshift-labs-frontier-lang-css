@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
+import { capabilityNode, createDocument, entityNode, hashSemanticValue, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { createCssSemanticMergeEvidence, emitCss, emitCssWithSourceMap, parseCssSemanticSheet, renderCssAst, renderCssAstWithSourceMap, safeMergeCssSource, toCssAst } from '../dist/index.js';
-import './parser-evidence-smoke.mjs'; import './selector-target-smoke.mjs'; import './dependency-graph-smoke.mjs'; import './cascade-runtime-proof-smoke.mjs'; import './shorthand-smoke.mjs'; import './at-rule-block-smoke.mjs'; import './duplicate-cascade-key-smoke.mjs'; import './css-modules-smoke.mjs';
+import './parser-evidence-smoke.mjs'; import './selector-target-smoke.mjs'; import './dependency-graph-smoke.mjs'; import './cascade-runtime-proof-smoke.mjs'; import './runtime-at-rule-proof-smoke.mjs'; import './scoped-cascade-proof-smoke.mjs'; import './shorthand-smoke.mjs'; import './at-rule-block-smoke.mjs'; import './duplicate-cascade-key-smoke.mjs'; import './css-modules-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoCss', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),
@@ -151,18 +151,47 @@ const cssScopedMergeMissingProof = safeMergeCssSource({
 assert.equal(cssScopedMergeMissingProof.status, 'blocked');
 assert.equal(cssScopedMergeMissingProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-scoped-cascade-equivalence-unproved'), true);
 
-const cssScopedMerge = safeMergeCssSource({
-  id: 'css_scoped_declaration_proven',
+const cssScopedMergeHashOnly = safeMergeCssSource({
+  id: 'css_scoped_declaration_hash_only',
   sourcePath: 'button.css',
   baseSourceText: cssScopedMergeBase,
   workerSourceText: cssScopedMergeWorker,
   headSourceText: cssScopedMergeHead,
   scopedCascadeGraphHash: 'hash_scoped_cascade'
 });
+assert.equal(cssScopedMergeHashOnly.status, 'blocked');
+assert.equal(cssScopedMergeHashOnly.conflicts.some((conflict) => conflict.details.reasonCode === 'css-scoped-cascade-equivalence-unproved'), true);
+const cssScopedMergeOutput = '@media (min-width: 700px) {\n  .button {\n    color: blue;\n    padding-left: 1rem;\n    background-color: white;\n  }\n}\n';
+const cssScopedMerge = safeMergeCssSource({
+  id: 'css_scoped_declaration_proven',
+  sourcePath: 'button.css',
+  baseSourceText: cssScopedMergeBase,
+  workerSourceText: cssScopedMergeWorker,
+  headSourceText: cssScopedMergeHead,
+  scopedCascadeGraphHash: 'hash_scoped_cascade',
+  cssScopedCascadeProofs: [{
+    id: 'proof_css_scoped_declaration',
+    kind: 'css-source-bound-scoped-cascade-proof',
+    status: 'passed',
+    sourcePath: 'button.css',
+    reasonCode: 'css-scoped-cascade-equivalence-unproved',
+    sides: ['worker', 'head'],
+    selectors: ['.button'],
+    scopes: ['@media (min-width: 700px)'],
+    cascadeKeys: ['@media (min-width: 700px)::.button::color', '@media (min-width: 700px)::.button::background-color'],
+    properties: ['color', 'background-color'],
+    scopedCascadeGraphHash: 'hash_scoped_cascade',
+    baseSourceHash: hashSemanticValue(cssScopedMergeBase),
+    workerSourceHash: hashSemanticValue(cssScopedMergeWorker),
+    headSourceHash: hashSemanticValue(cssScopedMergeHead),
+    outputSourceHash: hashSemanticValue(cssScopedMergeOutput)
+  }]
+});
 assert.equal(cssScopedMerge.status, 'merged');
 assert.match(cssScopedMerge.mergedSourceText, /@media \(min-width: 700px\) \{/);
 assert.match(cssScopedMerge.mergedSourceText, /color: blue/);
 assert.match(cssScopedMerge.mergedSourceText, /background-color: white/);
+assert.equal(cssScopedMerge.scopedCascadeProofs.length, 2);
 const cssLayerStatementMerge = safeMergeCssSource({
   id: 'css_layer_statement_preserved',
   baseSourceText: '@layer reset, components;\n.button { color: red; }\n',
