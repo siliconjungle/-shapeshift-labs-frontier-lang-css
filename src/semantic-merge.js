@@ -2,7 +2,7 @@ import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, uns
 import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
 import { mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
-import { shorthandGroupForProperty } from './semantic-merge-shorthand.js';
+import { declarationsOverlapByCssProperty, shorthandGroupForProperty } from './semantic-merge-shorthand.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
   const parseSheet = context.parseCssSemanticSheet;
@@ -197,9 +197,7 @@ function hasRelatedExistingDeclaration(entry, indexes) {
 
 function declarationsOverlapByShorthandGroup(left, right) {
   if (!left || !right || left.ruleKey !== right.ruleKey) return false;
-  const leftGroup = shorthandGroupForProperty(left.property);
-  const rightGroup = shorthandGroupForProperty(right.property);
-  return Boolean(leftGroup && rightGroup && leftGroup === rightGroup);
+  return declarationsOverlapByCssProperty(left.property, right.property);
 }
 
 function applyDeclarationChanges(index, changes) {

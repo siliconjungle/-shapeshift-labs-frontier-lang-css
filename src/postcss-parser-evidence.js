@@ -1,7 +1,7 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import postcss from 'postcss';
 
-const ShorthandProperties = new Set(['all', 'animation', 'background', 'border', 'border-block', 'border-color', 'border-image', 'border-inline', 'border-radius', 'border-style', 'border-width', 'columns', 'flex', 'font', 'gap', 'grid', 'grid-area', 'grid-column', 'grid-row', 'inset', 'list-style', 'margin', 'offset', 'outline', 'overflow', 'padding', 'place-content', 'place-items', 'place-self', 'text-decoration', 'transition']);
+const ShorthandProperties = new Set(['all', 'animation', 'background', 'border', 'border-block', 'border-block-color', 'border-block-end', 'border-block-start', 'border-block-style', 'border-block-width', 'border-bottom', 'border-color', 'border-image', 'border-inline', 'border-inline-color', 'border-inline-end', 'border-inline-start', 'border-inline-style', 'border-inline-width', 'border-left', 'border-radius', 'border-right', 'border-style', 'border-top', 'border-width', 'columns', 'flex', 'font', 'gap', 'grid', 'grid-area', 'grid-column', 'grid-row', 'inset', 'inset-block', 'inset-inline', 'list-style', 'margin', 'margin-block', 'margin-inline', 'offset', 'outline', 'overflow', 'overscroll-behavior', 'padding', 'padding-block', 'padding-inline', 'place-content', 'place-items', 'place-self', 'scroll-margin', 'scroll-margin-block', 'scroll-margin-inline', 'scroll-padding', 'scroll-padding-block', 'scroll-padding-inline', 'text-decoration', 'transition']);
 const RuntimeAtRules = new Set(['keyframes', 'font-face', 'page', 'property']);
 const ScopeAtRules = new Set(['media', 'supports', 'container', 'layer', 'scope']);
 
