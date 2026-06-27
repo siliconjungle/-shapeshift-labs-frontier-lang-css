@@ -3,7 +3,8 @@ import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
 import { admitCssDependencyGraphProofs, mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
 import { applyAtRuleBlockChanges, atRuleBlockEntry, atRuleBlockOverlapConflicts, atRuleOccurrenceKey, changedAtRuleBlocks, renderAtRuleBlock, renderAtRuleStatement } from './semantic-merge-at-rules.js';
-import { declarationsOverlapByCssProperty, shorthandGroupForProperty } from './semantic-merge-shorthand.js';
+import { declarationsOverlapByCssProperty, deterministicShorthandExpansion, shorthandGroupForProperty } from './semantic-merge-shorthand.js';
+import { mergeShorthandExpansionEvidence } from './semantic-merge-shorthand-evidence.js';
 import { duplicateCascadeKeyConflictsForIndexes } from './semantic-merge-duplicate-cascade.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
@@ -21,7 +22,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     worker: parseSheet(worker, sheetOptions(input, 'worker', sourcePath)),
     head: parseSheet(head, sheetOptions(input, 'head', sourcePath))
   };
-  const indexes = Object.fromEntries(Object.entries(sheets).map(([name, sheet]) => [name, declarationIndex(sheet)]));
+  const indexes = Object.fromEntries(Object.entries(sheets).map(([name, sheet]) => [name, declarationIndex(sheet, hash)]));
   const changed = {
     worker: changedDeclarations(indexes.base, indexes.worker, 'worker'),
     head: changedDeclarations(indexes.base, indexes.head, 'head')
@@ -41,6 +42,7 @@ function safeMergeCssSource(input = {}, context = {}) {
   ];
   const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const parserEvidence = mergeParserEvidence(sheets);
+  const shorthandExpansionEvidence = mergeShorthandExpansionEvidence(indexes, changed);
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
   const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, input);
   const shapeChanges = unsupportedSourceShapeChanges(sheets, changed, hash);
@@ -56,7 +58,7 @@ function safeMergeCssSource(input = {}, context = {}) {
   });
   const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
   const conflicts = [...parserConflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs });
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, shorthandExpansionEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs });
   return merged(id, sourcePath, mergedSourceText, 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
     workerSheetHash: sheets.worker.sheetHash,
@@ -66,6 +68,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     workerChangedCssModuleContracts: moduleChanges.worker.length,
     headChangedCssModuleContracts: moduleChanges.head.length,
     parserEvidence,
+    shorthandExpansionEvidence,
     dependencyGraphEvidence,
     selectorTargetEvidence: selectorTargetPlan.evidence,
     cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs,
@@ -74,7 +77,7 @@ function safeMergeCssSource(input = {}, context = {}) {
   });
 }
 
-function declarationIndex(sheet) {
+function declarationIndex(sheet, hash) {
   const declarations = new Map();
   const order = [];
   const statements = [];
@@ -102,6 +105,7 @@ function declarationIndex(sheet) {
         important: declaration.important,
         declarationOrdinal: declaration.ordinal,
         declarationHash: declaration.declarationHash,
+        shorthandExpansion: deterministicShorthandExpansion(declaration.property, declaration.value, hash),
         selectorTargetGraphHash: record.selectorTargetGraphHash,
         proofGaps: proofGapsForDeclaration(record, declaration)
       };
@@ -134,6 +138,8 @@ function proofGapConflicts(id, sourcePath, changed, indexes) {
       .filter((gap) => !canAdmitProofGap(gap, entry, changed, indexes))
       .map((gap) => conflict(id, sourcePath, 'css-proof-gap-blocked', gap.code, {
       cascadeKey: key,
+      property: entry.property,
+      shorthandExpansion: entry.shorthandExpansion,
       proofGap: gap
     }));
   });
@@ -202,7 +208,7 @@ function shorthandOverlapConflicts(id, sourcePath, workerChanges, headChanges) {
 function canAdmitProofGap(gap, entry, changed, indexes) {
   if (gap.code !== 'css-shorthand-expansion-unproved' || !entry) return false;
   const group = shorthandGroupForProperty(entry.property);
-  if (!group || hasRelatedExistingDeclaration(entry, indexes)) return false;
+  if (!group || entry.shorthandExpansion?.status !== 'expanded' || hasRelatedExistingDeclaration(entry, indexes)) return false;
   const oppositeChanges = [...changed.worker, ...changed.head].filter((change) => change.key !== entry.key);
   return !oppositeChanges.some((change) => declarationsOverlapByShorthandGroup(entry, change.after ?? change.before));
 }
@@ -239,9 +245,7 @@ function renderDeclarationIndex(index) {
   const chunks = [];
   for (const statement of index.statements ?? []) renderAtRuleStatement(chunks, statement);
   for (const key of index.atRuleBlockOrder ?? []) renderAtRuleBlock(chunks, index.atRuleBlocks.get(key));
-  for (const declarations of groups.values()) {
-    renderDeclarationGroup(chunks, declarations);
-  }
+  for (const declarations of groups.values()) renderDeclarationGroup(chunks, declarations);
   return `${chunks.join('\n').trimEnd()}\n`;
 }
 
@@ -263,21 +267,11 @@ function renderDeclarationGroup(chunks, declarations) {
 }
 
 function merged(id, sourcePath, sourceText, operation, hash, extra = {}) {
-  return result(id, sourcePath, 'merged', {
-    operation,
-    mergedSourceText: sourceText,
-    mergedSourceHash: hash?.(sourceText),
-    conflicts: [],
-    ...extra
-  });
+  return result(id, sourcePath, 'merged', { operation, mergedSourceText: sourceText, mergedSourceHash: hash?.(sourceText), conflicts: [], ...extra });
 }
 
 function blocked(id, sourcePath, reasonCode, conflicts = [], extra = {}) {
-  return result(id, sourcePath, 'blocked', {
-    operation: 'blocked',
-    conflicts: conflicts.length ? conflicts : [conflict(id, sourcePath, reasonCode, reasonCode)],
-    ...extra
-  });
+  return result(id, sourcePath, 'blocked', { operation: 'blocked', conflicts: conflicts.length ? conflicts : [conflict(id, sourcePath, reasonCode, reasonCode)], ...extra });
 }
 
 function result(id, sourcePath, status, body) {

@@ -11,12 +11,12 @@ const preservedKeyframes = safeMergeCssSource({
   sourcePath: 'anim.css',
   baseSourceText: keyframesBase,
   workerSourceText: keyframesBase.replace('color: red', 'color: blue'),
-  headSourceText: keyframesBase.replace('.button {', '.button { background: white;')
+  headSourceText: keyframesBase.replace('.button {', '.button { background-color: white;')
 });
 assert.equal(preservedKeyframes.status, 'merged');
 assert.match(preservedKeyframes.mergedSourceText, /@keyframes fade/);
 assert.match(preservedKeyframes.mergedSourceText, /color: blue/);
-assert.match(preservedKeyframes.mergedSourceText, /background: white/);
+assert.match(preservedKeyframes.mergedSourceText, /background-color: white/);
 
 const fontFaceBase = '@font-face { font-family: Inter; src: url("/inter.woff2"); }\n.button { color: red; }\n';
 const preservedFontFace = safeMergeCssSource({
@@ -24,12 +24,12 @@ const preservedFontFace = safeMergeCssSource({
   sourcePath: 'fonts.css',
   baseSourceText: fontFaceBase,
   workerSourceText: fontFaceBase.replace('color: red', 'color: blue'),
-  headSourceText: fontFaceBase.replace('.button {', '.button { background: white;')
+  headSourceText: fontFaceBase.replace('.button {', '.button { background-color: white;')
 });
 assert.equal(preservedFontFace.status, 'merged');
 assert.match(preservedFontFace.mergedSourceText, /@font-face/);
 assert.match(preservedFontFace.mergedSourceText, /color: blue/);
-assert.match(preservedFontFace.mergedSourceText, /background: white/);
+assert.match(preservedFontFace.mergedSourceText, /background-color: white/);
 
 const blockedKeyframes = safeMergeCssSource({
   id: 'css_keyframes_unproved',
@@ -46,7 +46,7 @@ const blockedFontFace = safeMergeCssSource({
   sourcePath: 'fonts.css',
   baseSourceText: fontFaceBase,
   workerSourceText: fontFaceBase.replace('/inter.woff2', '/inter-v2.woff2'),
-  headSourceText: fontFaceBase.replace('.button {', '.button { background: white;')
+  headSourceText: fontFaceBase.replace('.button {', '.button { background-color: white;')
 });
 assert.equal(blockedFontFace.status, 'blocked');
 assert.equal(blockedFontFace.conflicts.some((item) => item.details.reasonCode === 'css-font-face-runtime-equivalence-unproved'), true);

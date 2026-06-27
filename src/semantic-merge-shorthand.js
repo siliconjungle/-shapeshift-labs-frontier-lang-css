@@ -6,6 +6,38 @@ function shorthandGroupForProperty(property) {
   return undefined;
 }
 
+function deterministicShorthandExpansion(property, value, hash) {
+  const normalized = normalizeProperty(property);
+  if (!normalized || !ShorthandExpansionKeys.has(normalized)) return undefined;
+  const definition = DeterministicShorthandExpansions.get(normalized);
+  const unsupported = (reasonCode) => ({
+    kind: 'frontier.lang.cssShorthandExpansionEvidence',
+    version: 1,
+    property: normalized,
+    value: String(value ?? ''),
+    status: 'unsupported',
+    deterministic: false,
+    reasonCode,
+    expansionHash: hash?.({ kind: 'frontier.lang.css.shorthandExpansion.v1', property: normalized, value: String(value ?? ''), status: 'unsupported', reasonCode })
+  });
+  if (!definition) return unsupported('css-shorthand-expansion-unsupported');
+  const tokens = cssValueTokens(value);
+  if (!tokens.length || tokens.length > definition.maxTokens) return unsupported('css-shorthand-expansion-unsupported-value-shape');
+  if (tokens.some(isRuntimeSubstitutionToken)) return unsupported('css-shorthand-expansion-runtime-substitution');
+  const longhands = expandTokens(definition.properties, tokens);
+  return {
+    kind: 'frontier.lang.cssShorthandExpansionEvidence',
+    version: 1,
+    property: normalized,
+    value: String(value ?? ''),
+    group: normalized,
+    status: 'expanded',
+    deterministic: true,
+    longhands,
+    expansionHash: hash?.({ kind: 'frontier.lang.css.shorthandExpansion.v1', property: normalized, value: String(value ?? ''), longhands })
+  };
+}
+
 function declarationsOverlapByCssProperty(leftProperty, rightProperty) {
   const left = normalizeProperty(leftProperty);
   const right = normalizeProperty(rightProperty);
@@ -26,6 +58,80 @@ function affectedPropertyKeys(property) {
 
 function normalizeProperty(property) {
   return String(property ?? '').trim().toLowerCase();
+}
+
+function cssValueTokens(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return [];
+  const tokens = [];
+  let token = '';
+  let depth = 0;
+  let quote = '';
+  let escaped = false;
+  for (const char of text) {
+    if (escaped) {
+      token += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      token += char;
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      token += char;
+      if (char === quote) quote = '';
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      token += char;
+      quote = char;
+      continue;
+    }
+    if (char === '(') {
+      token += char;
+      depth += 1;
+      continue;
+    }
+    if (char === ')') {
+      token += char;
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (/\s/.test(char) && depth === 0) {
+      if (token) tokens.push(token);
+      token = '';
+      continue;
+    }
+    token += char;
+  }
+  if (token) tokens.push(token);
+  return tokens;
+}
+
+function isRuntimeSubstitutionToken(token) {
+  return /\b(?:var|env)\s*\(/i.test(String(token ?? ''));
+}
+
+function expandTokens(properties, tokens) {
+  if (properties.length === 4) {
+    const [top, right = top, bottom = top, left = right] = tokens;
+    return [
+      { property: properties[0], value: top },
+      { property: properties[1], value: right },
+      { property: properties[2], value: bottom },
+      { property: properties[3], value: left }
+    ];
+  }
+  if (properties.length === 2) {
+    const [first, second = first] = tokens;
+    return [
+      { property: properties[0], value: first },
+      { property: properties[1], value: second }
+    ];
+  }
+  return properties.map((longhand, index) => ({ property: longhand, value: tokens[index] ?? tokens[0] }));
 }
 
 function allPropertyExcluded(property) {
@@ -132,6 +238,32 @@ const ShorthandExpansionKeys = new Map(Object.entries({
   transition: ['transition-behavior', 'transition-delay', 'transition-duration', 'transition-property', 'transition-timing-function']
 }).map(([property, keys]) => [property, new Set(keys)]));
 
+const DeterministicShorthandExpansions = new Map(Object.entries({
+  margin: box4('margin', ['top', 'right', 'bottom', 'left']),
+  padding: box4('padding', ['top', 'right', 'bottom', 'left']),
+  inset: { properties: ['top', 'right', 'bottom', 'left'], maxTokens: 4 },
+  'margin-block': { properties: ['margin-block-start', 'margin-block-end'], maxTokens: 2 },
+  'margin-inline': { properties: ['margin-inline-start', 'margin-inline-end'], maxTokens: 2 },
+  'padding-block': { properties: ['padding-block-start', 'padding-block-end'], maxTokens: 2 },
+  'padding-inline': { properties: ['padding-inline-start', 'padding-inline-end'], maxTokens: 2 },
+  'inset-block': { properties: ['inset-block-start', 'inset-block-end'], maxTokens: 2 },
+  'inset-inline': { properties: ['inset-inline-start', 'inset-inline-end'], maxTokens: 2 },
+  gap: { properties: ['row-gap', 'column-gap'], maxTokens: 2 },
+  'scroll-margin': box4('scroll-margin', ['top', 'right', 'bottom', 'left']),
+  'scroll-padding': box4('scroll-padding', ['top', 'right', 'bottom', 'left']),
+  'scroll-margin-block': { properties: ['scroll-margin-block-start', 'scroll-margin-block-end'], maxTokens: 2 },
+  'scroll-margin-inline': { properties: ['scroll-margin-inline-start', 'scroll-margin-inline-end'], maxTokens: 2 },
+  'scroll-padding-block': { properties: ['scroll-padding-block-start', 'scroll-padding-block-end'], maxTokens: 2 },
+  'scroll-padding-inline': { properties: ['scroll-padding-inline-start', 'scroll-padding-inline-end'], maxTokens: 2 },
+  'border-width': box4('border', ['top-width', 'right-width', 'bottom-width', 'left-width']),
+  'border-style': box4('border', ['top-style', 'right-style', 'bottom-style', 'left-style']),
+  'border-color': box4('border', ['top-color', 'right-color', 'bottom-color', 'left-color'])
+}));
+
+function box4(prefix, suffixes) {
+  return { properties: suffixes.map((suffix) => `${prefix}-${suffix}`), maxTokens: 4 };
+}
+
 function edgeKeys(prefix, attributes) {
   return ['top', 'right', 'bottom', 'left'].flatMap((edge) => attributes.map((attribute) => `${prefix}-${edge}-${attribute}`));
 }
@@ -144,4 +276,4 @@ function propertyTuple(prefix, attributes) {
   return attributes.map((attribute) => `${prefix}-${attribute}`);
 }
 
-export { declarationsOverlapByCssProperty, shorthandGroupForProperty };
+export { declarationsOverlapByCssProperty, deterministicShorthandExpansion, shorthandGroupForProperty };

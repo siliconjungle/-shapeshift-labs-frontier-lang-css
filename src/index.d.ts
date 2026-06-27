@@ -1,4 +1,4 @@
-import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js';
+import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel'; import type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; import type { CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; import type { CssSafeMergeShorthandExpansionEvidence, CssShorthandExpansionEvidence } from './shorthand-expansion.js'; export type { CssCascadeRuntimeProof, CssCascadeRuntimeProofRecord } from './cascade-runtime-proof.js'; export type { CssDependencyGraphChange, CssDependencyGraphEvidence, CssDependencyGraphProof, CssDependencyGraphProofRecord } from './dependency-graph.js'; export type { CssSafeMergeChangedShorthandExpansion, CssSafeMergeShorthandExpansionEvidence, CssSafeMergeShorthandExpansionSideEvidence, CssShorthandExpansionEvidence, CssShorthandLonghandExpansion } from './shorthand-expansion.js';
 
 export interface CssProjectionOptions {
   readonly banner?: string;
@@ -111,6 +111,7 @@ export interface CssSemanticDeclaration {
   readonly ordinal: number;
   readonly cascadeKey: string;
   readonly declarationHash: string;
+  readonly shorthandExpansion?: CssShorthandExpansionEvidence;
 }
 
 export interface CssSemanticRecord {
@@ -241,7 +242,7 @@ export interface CssSafeMergeResult {
   readonly baseSheetHash?: string; readonly workerSheetHash?: string; readonly headSheetHash?: string;
   readonly workerChangedDeclarations?: number; readonly headChangedDeclarations?: number;
   readonly workerChangedCssModuleContracts?: number; readonly headChangedCssModuleContracts?: number;
-  readonly parserEvidence?: CssSafeMergeParserEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence; readonly dependencyGraphEvidence?: CssDependencyGraphEvidence;
+  readonly parserEvidence?: CssSafeMergeParserEvidence; readonly shorthandExpansionEvidence?: CssSafeMergeShorthandExpansionEvidence; readonly selectorTargetEvidence?: CssSafeMergeSelectorTargetEvidence; readonly dependencyGraphEvidence?: CssDependencyGraphEvidence;
   readonly cascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
   readonly dependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
 }
