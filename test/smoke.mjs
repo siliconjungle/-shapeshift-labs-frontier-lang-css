@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { createCssSemanticMergeEvidence, emitCss, emitCssWithSourceMap, parseCssSemanticSheet, renderCssAst, renderCssAstWithSourceMap, safeMergeCssSource, toCssAst } from '../dist/index.js';
-import './parser-evidence-smoke.mjs'; import './selector-target-smoke.mjs'; import './dependency-graph-smoke.mjs'; import './cascade-runtime-proof-smoke.mjs'; import './shorthand-smoke.mjs'; import './at-rule-block-smoke.mjs'; import './duplicate-cascade-key-smoke.mjs';
+import './parser-evidence-smoke.mjs'; import './selector-target-smoke.mjs'; import './dependency-graph-smoke.mjs'; import './cascade-runtime-proof-smoke.mjs'; import './shorthand-smoke.mjs'; import './at-rule-block-smoke.mjs'; import './duplicate-cascade-key-smoke.mjs'; import './css-modules-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoCss', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),
@@ -79,67 +79,6 @@ assert.equal(scopedWithoutProof.proofGaps.some((gap) => gap.code === 'css-scoped
 assert.equal(scopedWithProof.proofGaps.some((gap) => gap.code === 'css-media-cascade-scope-unproved'), false);
 assert.equal(scopedWithProof.proofGaps.some((gap) => gap.code === 'css-scoped-cascade-equivalence-unproved'), false);
 assert.equal(scopedWithProof.status, 'ready');
-
-const tokenModulePath = ['.', '/', 'tokens.module.css'].join('');
-const baseModulePath = ['.', '/', 'base.module.css'].join('');
-const moduleSource = [
-  `:import("${tokenModulePath}") {`,
-  '  brandColor: colorToken;',
-  '}',
-  '.root {',
-  `  composes: base primary from "${baseModulePath}";`,
-  '  color: var(--brand);',
-  '}',
-  '.root :global(.external) { display: block; }',
-  ':local(.active) { opacity: 1; }',
-  ':export {',
-  '  primaryColor: var(--brand);',
-  '}'
-].join('\n');
-const moduleSheet = parseCssSemanticSheet(moduleSource, { sourcePath: 'Button.module.css' });
-const moduleEvidence = createCssSemanticMergeEvidence(moduleSource, { sourcePath: 'Button.module.css' });
-const provenModuleEvidence = createCssSemanticMergeEvidence(moduleSource, {
-  sourcePath: 'Button.module.css',
-  generatedClassNameMap: { root: 'Button_root__hash', active: 'Button_active__hash' },
-  jsTsUseSiteGraphHash: 'hash_use_sites',
-  cssModuleCompositionGraphHash: 'hash_composition',
-  icssGraphHash: 'hash_icss'
-});
-const incompleteModuleEvidence = createCssSemanticMergeEvidence(moduleSource, {
-  sourcePath: 'Button.module.css',
-  generatedClassNameMap: { root: 'Button_root__hash' },
-  jsTsUseSiteGraphHash: 'hash_use_sites',
-  cssModuleCompositionGraphHash: 'hash_composition',
-  icssGraphHash: 'hash_icss'
-});
-
-assert.equal(moduleSheet.cssModules.kind, 'frontier.lang.cssModuleEvidence');
-assert.equal(moduleSheet.cssModules.mode, 'css-modules');
-assert.equal(moduleSheet.summary.cssModuleExports, 2);
-assert.equal(moduleSheet.summary.cssModuleCompositions, 1);
-assert.equal(moduleSheet.summary.icssImports, 1);
-assert.equal(moduleSheet.summary.icssExports, 1);
-assert.equal(moduleSheet.cssModules.exports.some((entry) => entry.name === 'root'), true);
-assert.equal(moduleSheet.cssModules.exports.some((entry) => entry.name === 'active'), true);
-assert.equal(moduleSheet.cssModules.exports.some((entry) => entry.name === 'external'), false);
-const rootComposition = moduleSheet.cssModules.compositions.find((entry) => entry.localName === 'root');
-assert.deepEqual(rootComposition.names, ['base', 'primary']);
-assert.equal(rootComposition.source, './base.module.css');
-assert.equal(rootComposition.sourceKind, 'file');
-assert.equal(moduleSheet.cssModules.icssImports[0].source, './tokens.module.css');
-assert.equal(moduleSheet.cssModules.icssImports[0].importedName, 'brandColor');
-assert.equal(moduleSheet.cssModules.icssImports[0].localName, 'colorToken');
-assert.equal(moduleSheet.cssModules.icssExports[0].name, 'primaryColor');
-assert.equal(moduleEvidence.proofGaps.some((gap) => gap.code === 'css-module-generated-class-map-unproved'), true);
-assert.equal(moduleEvidence.proofGaps.some((gap) => gap.code === 'css-module-js-ts-use-site-graph-unproved'), true);
-assert.equal(moduleEvidence.proofGaps.some((gap) => gap.code === 'css-module-composition-resolution-unproved'), true);
-assert.equal(moduleEvidence.proofGaps.some((gap) => gap.code === 'css-module-icss-graph-unproved'), true);
-assert.equal(moduleEvidence.cssModuleGeneratedNameEquivalenceClaim, false);
-assert.equal(moduleEvidence.cssModuleUseSiteEquivalenceClaim, false);
-assert.equal(provenModuleEvidence.cssModules.generatedClassNameMapHash.startsWith('fnv1a32:'), true);
-assert.equal(provenModuleEvidence.cssModules.proofGaps.length, 0);
-assert.equal(provenModuleEvidence.status, 'ready');
-assert.equal(incompleteModuleEvidence.proofGaps.some((gap) => gap.code === 'css-module-generated-class-map-incomplete'), true);
 
 const cssMergeBase = [
   '.button {',
@@ -236,73 +175,3 @@ const cssLayerStatementConflict = safeMergeCssSource({ id: 'css_layer_statement_
 assert.equal(cssLayerStatementConflict.conflicts.some((conflict) => conflict.details.reasonCode === 'css-layer-order-statement-unsupported'), true);
 const cssOneSidedScopeConflict = safeMergeCssSource({ id: 'css_one_sided_scope_conflict', baseSourceText: '.button { color: red; }\n', workerSourceText: '@media (min-width: 700px) { .button { color: red; } }\n', headSourceText: '.button { color: red; }\n', scopedCascadeGraphHash: 'hash_scoped_cascade' });
 assert.equal(cssOneSidedScopeConflict.conflicts.some((conflict) => conflict.details.reasonCode === 'css-atrule-new-scope-unsupported'), true);
-
-const cssModuleMergeBase = [
-  '.root {',
-  '  color: red;',
-  '}',
-  ''
-].join('\n');
-const cssModuleMergeWorkerAddsExport = [
-  '.root {',
-  '  color: red;',
-  '}',
-  '.label {',
-  '  font-weight: 600;',
-  '}',
-  ''
-].join('\n');
-const cssModuleMergeHeadChangesStyle = [
-  '.root {',
-  '  color: blue;',
-  '}',
-  ''
-].join('\n');
-const cssModuleMissingProof = safeMergeCssSource({
-  id: 'css_module_missing_contract_proof',
-  sourcePath: 'Button.module.css',
-  baseSourceText: cssModuleMergeBase,
-  workerSourceText: cssModuleMergeWorkerAddsExport,
-  headSourceText: cssModuleMergeHeadChangesStyle
-});
-assert.equal(cssModuleMissingProof.status, 'blocked');
-assert.equal(cssModuleMissingProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-module-js-ts-use-site-graph-unproved'), true);
-
-const cssModuleContractMerge = safeMergeCssSource({
-  id: 'css_module_contract_merge',
-  sourcePath: 'Button.module.css',
-  baseSourceText: cssModuleMergeBase,
-  workerSourceText: cssModuleMergeWorkerAddsExport,
-  headSourceText: cssModuleMergeHeadChangesStyle,
-  generatedClassNameMap: { root: 'Button_root__hash', label: 'Button_label__hash' },
-  jsTsUseSiteGraphHash: 'hash_css_module_use_sites'
-});
-assert.equal(cssModuleContractMerge.status, 'merged');
-assert.equal(cssModuleContractMerge.workerChangedCssModuleContracts, 1);
-assert.match(cssModuleContractMerge.mergedSourceText, /\.label/);
-assert.match(cssModuleContractMerge.mergedSourceText, /color: blue/);
-
-const cssModuleCompositionMissingProof = safeMergeCssSource({
-  id: 'css_module_composition_missing_proof',
-  sourcePath: 'Button.module.css',
-  baseSourceText: '.root { color: red; }\n',
-  workerSourceText: '.root { color: red; composes: base from "./base.module.css"; }\n',
-  headSourceText: '.root { color: blue; }\n',
-  generatedClassNameMap: { root: 'Button_root__hash' },
-  jsTsUseSiteGraphHash: 'hash_css_module_use_sites'
-});
-assert.equal(cssModuleCompositionMissingProof.status, 'blocked');
-assert.equal(cssModuleCompositionMissingProof.conflicts.some((conflict) => conflict.details.reasonCode === 'css-module-composition-resolution-unproved'), true);
-
-const cssModuleCompositionMerge = safeMergeCssSource({
-  id: 'css_module_composition_merge',
-  sourcePath: 'Button.module.css',
-  baseSourceText: '.root { color: red; }\n',
-  workerSourceText: '.root { color: red; composes: base from "./base.module.css"; }\n',
-  headSourceText: '.root { color: blue; }\n',
-  generatedClassNameMap: { root: 'Button_root__hash' },
-  jsTsUseSiteGraphHash: 'hash_css_module_use_sites',
-  cssModuleCompositionGraphHash: 'hash_composition_graph'
-});
-assert.equal(cssModuleCompositionMerge.status, 'merged');
-assert.match(cssModuleCompositionMerge.mergedSourceText, /composes: base from "\.\/base\.module\.css"/);

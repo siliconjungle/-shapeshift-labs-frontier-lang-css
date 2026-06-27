@@ -1,4 +1,5 @@
-import { cssModuleContractChanges, cssModuleContractConflicts, sheetOptions, unsupportedSourceShapeChanges } from './semantic-merge-css-modules.js';
+import { cssModuleContractChanges, sheetOptions, unsupportedSourceShapeChanges } from './semantic-merge-css-modules.js';
+import { admitCssModuleContractProofs } from './semantic-merge-css-module-proofs.js';
 import { admitCascadeRuntimeProofs } from './semantic-merge-cascade-runtime.js';
 import { admitCssDependencyGraphProofs, mergeCssDependencyGraphEvidence } from './dependency-graph.js';
 import { mergeSelectorTargetEvidence, planSelectorTargetRebase } from './semantic-merge-selector-targets.js';
@@ -40,7 +41,6 @@ function safeMergeCssSource(input = {}, context = {}) {
     ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head),
     ...atRuleBlockOverlapConflicts(id, sourcePath, blockChanges.worker, blockChanges.head, conflict)
   ];
-  const moduleConflicts = cssModuleContractConflicts(id, sourcePath, moduleChanges);
   const parserEvidence = mergeParserEvidence(sheets);
   const shorthandExpansionEvidence = mergeShorthandExpansionEvidence(indexes, changed);
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
@@ -57,8 +57,9 @@ function safeMergeCssSource(input = {}, context = {}) {
     hash
   });
   const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
-  const conflicts = [...parserConflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...moduleConflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
-  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, shorthandExpansionEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs });
+  const cssModuleAdmission = admitCssModuleContractProofs({ id, sourcePath, input, moduleChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
+  const conflicts = [...parserConflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...cssModuleAdmission.conflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
+  if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, shorthandExpansionEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cssModuleContractProofs: cssModuleAdmission.proofs, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs });
   return merged(id, sourcePath, mergedSourceText, 'semantic-declaration-merge', hash, {
     baseSheetHash: sheets.base.sheetHash,
     workerSheetHash: sheets.worker.sheetHash,
@@ -71,6 +72,7 @@ function safeMergeCssSource(input = {}, context = {}) {
     shorthandExpansionEvidence,
     dependencyGraphEvidence,
     selectorTargetEvidence: selectorTargetPlan.evidence,
+    cssModuleContractProofs: cssModuleAdmission.proofs,
     cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs,
     dependencyGraphProofs: dependencyGraphAdmission.proofs,
     browserCascadeEquivalenceClaim: cascadeRuntimeAdmission.proofs.length > 0
@@ -293,7 +295,7 @@ function result(id, sourcePath, status, body) {
       reviewRequired: status !== 'merged',
       reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
       browserCascadeEquivalenceClaim: browserCascadeEquivalenceClaim || undefined,
-      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined, cssDependencyGraphProofs: body.dependencyGraphProofs?.length ? body.dependencyGraphProofs : undefined
+      cssCascadeRuntimeProofs: body.cascadeRuntimeProofs?.length ? body.cascadeRuntimeProofs : undefined, cssDependencyGraphProofs: body.dependencyGraphProofs?.length ? body.dependencyGraphProofs : undefined, cssModuleContractProofs: body.cssModuleContractProofs?.length ? body.cssModuleContractProofs : undefined
     }
   };
 }

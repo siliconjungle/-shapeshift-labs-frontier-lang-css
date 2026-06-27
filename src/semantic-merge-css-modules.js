@@ -35,6 +35,7 @@ function cssModuleContractIndex(sheet, hash) {
   for (const entry of cssModules.exports ?? []) {
     const contractHash = hash?.({ kind: 'frontier.lang.css.module.export.contract.v1', name: entry.name, generatedName: entry.generatedName });
     contracts.set(`export:${entry.name}`, {
+      ...contractEvidence(cssModules),
       key: `export:${entry.name}`,
       contractKind: 'css-module-export',
       name: entry.name,
@@ -45,6 +46,7 @@ function cssModuleContractIndex(sheet, hash) {
   for (const entry of cssModules.compositions ?? []) {
     const key = ['composition', entry.localName, entry.sourceKind, entry.source ?? 'local'].join(':');
     contracts.set(key, {
+      ...contractEvidence(cssModules),
       key,
       contractKind: 'css-module-composition',
       name: entry.localName,
@@ -55,6 +57,7 @@ function cssModuleContractIndex(sheet, hash) {
   for (const entry of cssModules.icssImports ?? []) {
     const key = ['icss-import', entry.source, entry.importedName].join(':');
     contracts.set(key, {
+      ...contractEvidence(cssModules),
       key,
       contractKind: 'icss-import',
       name: entry.localName,
@@ -65,6 +68,7 @@ function cssModuleContractIndex(sheet, hash) {
   for (const entry of cssModules.icssExports ?? []) {
     const key = `icss-export:${entry.name}`;
     contracts.set(key, {
+      ...contractEvidence(cssModules),
       key,
       contractKind: 'icss-export',
       name: entry.name,
@@ -73,6 +77,16 @@ function cssModuleContractIndex(sheet, hash) {
     });
   }
   return { contracts, proofGaps: cssModules.proofGaps ?? [], moduleHash: cssModules.moduleHash };
+}
+
+function contractEvidence(cssModules) {
+  return {
+    moduleHash: cssModules.moduleHash,
+    generatedClassNameMapHash: cssModules.generatedClassNameMapHash,
+    jsTsUseSiteGraphHash: cssModules.jsTsUseSiteGraphHash,
+    cssModuleCompositionGraphHash: cssModules.cssModuleCompositionGraphHash,
+    icssGraphHash: cssModules.icssGraphHash
+  };
 }
 
 function changedContracts(baseIndex, currentIndex, side, sheet) {
