@@ -1,4 +1,6 @@
 import { autoDependencyGraphProofCandidates } from './dependency-graph-keyframes.js';
+import { autoFontFaceDependencyGraphProofCandidates } from './dependency-graph-fonts.js';
+import { autoUrlAssetDependencyGraphProofCandidates } from './dependency-graph-assets.js';
 
 function admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, sourceShapeChanges = [], outputDependencyGraphEvidence, binding, hash }) {
   const proofs = [
@@ -8,6 +10,23 @@ function admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphE
       input,
       dependencyGraphEvidence,
       sourceShapeChanges,
+      outputDependencyGraphEvidence,
+      binding,
+      hash
+    }),
+    ...autoFontFaceDependencyGraphProofCandidates({
+      sourcePath,
+      input,
+      dependencyGraphEvidence,
+      sourceShapeChanges,
+      outputDependencyGraphEvidence,
+      binding,
+      hash
+    }),
+    ...autoUrlAssetDependencyGraphProofCandidates({
+      sourcePath,
+      input,
+      dependencyGraphEvidence,
       outputDependencyGraphEvidence,
       binding,
       hash
@@ -100,7 +119,9 @@ function dependencyGraphProofRecord(proof, change, sourcePath, evidence, binding
     sourceBound: proof.sourceBound,
     shapeKeys: proof.shapeKeys,
     coveredSourceShapeChanges: proof.coveredSourceShapeChanges,
-    keyframeRename: proof.keyframeRename
+    keyframeRename: proof.keyframeRename,
+    fontFaceRename: proof.fontFaceRename,
+    urlAssetRename: proof.urlAssetRename
   });
 }
 

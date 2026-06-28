@@ -14,7 +14,7 @@ function createCssDependencyGraphEvidence(records = [], options = {}) {
   for (const record of records) {
     if (record.kind === 'at-rule' && record.atRuleName === 'keyframes') keyframes.push(keyframeDefinition(record, hash));
     if (record.kind === 'at-rule' && record.atRuleName === 'font-face') {
-      for (const family of record.dependencyTokens?.fontFamilies ?? []) fontFaces.push(fontFaceDefinition(record, family));
+      for (const family of record.dependencyTokens?.fontFamilies ?? []) fontFaces.push(fontFaceDefinition(record, family, hash));
       for (const url of record.dependencyTokens?.urls ?? []) assets.push(assetReference(record, undefined, url, 'font-face-src'));
     }
     for (const declaration of record.declarations ?? []) {
@@ -180,8 +180,16 @@ function keyframeDefinition(record, hash) {
   };
 }
 
-function fontFaceDefinition(record, family) {
-  return { kind: 'font-face-definition', family, atRuleHash: record.atRuleHash, sourceSpan: record.sourceSpan, sourceHash: record.sourceHash };
+function fontFaceDefinition(record, family, hash) {
+  return {
+    kind: 'font-face-definition',
+    family,
+    atRuleHash: record.atRuleHash,
+    rawTextHash: record.rawTextHash,
+    normalizedBlockHash: hash?.({ kind: 'frontier.lang.css.fontFace.familyNormalizedBlock.v1', blockText: fontFaceFamilyNormalizedBlockText(record.blockText) }),
+    sourceSpan: record.sourceSpan,
+    sourceHash: record.sourceHash
+  };
 }
 
 function baseDependencyRecord(record, declaration, extra) {
@@ -223,6 +231,7 @@ function fontFamilyNames(value) {
 
 function firstCssIdent(value) { return /^[-_A-Za-z][\w-]*/.exec(String(value ?? '').trim())?.[0]; }
 function keyframesBodyText(value) { const text = String(value ?? ''); const start = text.indexOf('{'); const end = text.lastIndexOf('}'); return start >= 0 && end > start ? text.slice(start + 1, end).trim() : text; }
+function fontFaceFamilyNormalizedBlockText(value) { return String(value ?? '').replace(/font-family\s*:\s*[^;{}]+;/gi, 'font-family: <family>;').trim(); }
 
 function emptyGraphEvidence(sheet) {
   return { kind: 'frontier.lang.cssDependencyGraphEvidence', version: 1, sourceHash: sheet.sourceHash, hasDependencySurface: false, dependencySurfaceCount: 0, dependencyGraphHashPresent: false, cssDependencyGraphHashPresent: false, semanticEquivalenceClaim: false };

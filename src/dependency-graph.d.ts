@@ -19,6 +19,7 @@ export interface CssDependencyGraphRecord {
   readonly atRuleHash?: string;
   readonly rawTextHash?: string;
   readonly bodyHash?: string;
+  readonly normalizedBlockHash?: string;
   readonly selectors?: readonly string[];
   readonly scopes?: readonly string[];
   readonly sourceSpan?: CssSourceSpan;
@@ -122,4 +123,6 @@ export interface CssDependencyGraphProofRecord {
   readonly shapeKeys?: readonly string[];
   readonly coveredSourceShapeChanges?: readonly string[];
   readonly keyframeRename?: Readonly<Record<string, unknown>>;
+  readonly fontFaceRename?: Readonly<Record<string, unknown>>;
+  readonly urlAssetRename?: Readonly<Record<string, unknown>>;
 }
