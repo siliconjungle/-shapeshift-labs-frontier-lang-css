@@ -1,4 +1,5 @@
 import { cssRuntimeDescriptorGraph } from './runtime-descriptor-evidence.js';
+import { admitCssDependencyGraphProofs } from './dependency-graph-admission.js';
 
 function createCssDependencyGraphEvidence(records = [], options = {}) {
   const hash = options.hashSemanticValue;
@@ -11,7 +12,7 @@ function createCssDependencyGraphEvidence(records = [], options = {}) {
   const assets = [];
   const descriptors = cssRuntimeDescriptorGraph(records);
   for (const record of records) {
-    if (record.kind === 'at-rule' && record.atRuleName === 'keyframes') keyframes.push(keyframeDefinition(record));
+    if (record.kind === 'at-rule' && record.atRuleName === 'keyframes') keyframes.push(keyframeDefinition(record, hash));
     if (record.kind === 'at-rule' && record.atRuleName === 'font-face') {
       for (const family of record.dependencyTokens?.fontFamilies ?? []) fontFaces.push(fontFaceDefinition(record, family));
       for (const url of record.dependencyTokens?.urls ?? []) assets.push(assetReference(record, undefined, url, 'font-face-src'));
@@ -101,18 +102,6 @@ function mergeCssDependencyGraphEvidence(sheets, changed = {}) {
   };
 }
 
-function admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding, hash }) {
-  const proofs = dependencyGraphProofCandidates(input, sourcePath);
-  const admitted = [];
-  const conflicts = [];
-  for (const change of dependencyGraphEvidence.changedDependencySurfaces ?? []) {
-    const proof = proofs.find((candidate) => isDependencyGraphProofForChange(candidate, change, sourcePath, dependencyGraphEvidence, binding, hash));
-    if (proof) admitted.push(dependencyGraphProofRecord(proof, change, sourcePath, dependencyGraphEvidence, binding, hash));
-    else conflicts.push(conflict(id, sourcePath, 'css-dependency-graph-proof-blocked', change.reasonCode, change));
-  }
-  return { proofs: admitted, conflicts };
-}
-
 function changedDependencyGraphSurfaces(sides, changed) {
   return Object.entries(changed).flatMap(([side, changes]) => (changes ?? []).flatMap((change) => {
     const cascadeKey = change.after?.key ?? change.before?.key;
@@ -125,6 +114,9 @@ function changedDependencyGraphSurfaces(sides, changed) {
       cascadeKey,
       reasonCode: 'css-dependency-graph-proof-unproved',
       changeKind: change.kind,
+      property: change.after?.property ?? change.before?.property,
+      beforeValue: change.before?.value,
+      afterValue: change.after?.value,
       before: dependencyRecordSummary(before),
       after: dependencyRecordSummary(after)
     }];
@@ -136,6 +128,7 @@ function dependencySurfaceRecords(evidence) {
   return [
     ...(records.customPropertyDefinitions ?? []),
     ...(records.customPropertyReferences ?? []),
+    ...(records.keyframes ?? []),
     ...(records.animationNameLinks ?? []),
     ...(records.fontFaceLinks ?? []),
     ...(records.urlAssetReferences ?? [])
@@ -153,85 +146,6 @@ function dependencyRecordSummary(records) {
     properties: unique(records.map((entry) => entry.property)),
     declarationHashes: unique(records.map((entry) => entry.declarationHash))
   };
-}
-
-function dependencyGraphProofCandidates(input = {}, sourcePath) {
-  return [
-    input.cssDependencyGraphProof,
-    input.cssDependencyGraphProofs,
-    input.cssDependencyGraphProofsByPath?.[sourcePath],
-    input.cssSourceBoundDependencyGraphProof,
-    input.cssSourceBoundDependencyGraphProofs,
-    input.cssSourceBoundDependencyGraphProofsByPath?.[sourcePath],
-    input.dependencyGraphProof,
-    input.dependencyGraphProofs,
-    input.dependencyGraphProofsByPath?.[sourcePath],
-    input.sourceBoundDependencyGraphProof,
-    input.sourceBoundDependencyGraphProofs,
-    input.sourceBoundDependencyGraphProofsByPath?.[sourcePath]
-  ].flatMap(asArray).filter(Boolean);
-}
-
-function isDependencyGraphProofForChange(proof, change, sourcePath, evidence, binding, hash) {
-  return Boolean(proof && typeof proof === 'object') &&
-    DependencyGraphProofKinds.has(proof.kind) &&
-    proof.status === 'passed' &&
-    proof.sourcePath === sourcePath &&
-    proofCoversValue(proof.reasonCode, proof.reasonCodes, change.reasonCode) &&
-    proofCoversValue(proof.side, proof.sides, change.side) &&
-    proofCoversValue(proof.cascadeKey ?? proof.dependencyKey, proof.cascadeKeys ?? proof.dependencyKeys, change.cascadeKey) &&
-    proofSourceMatches(proof, 'base', binding.base, hash) &&
-    proofSourceMatches(proof, 'worker', binding.worker, hash) &&
-    proofSourceMatches(proof, 'head', binding.head, hash) &&
-    proofSourceMatches(proof, 'output', binding.output, hash) &&
-    dependencyGraphHashMatches(proof, 'base', evidence.sides?.base) &&
-    dependencyGraphHashMatches(proof, 'worker', evidence.sides?.worker) &&
-    dependencyGraphHashMatches(proof, 'head', evidence.sides?.head);
-}
-
-function dependencyGraphHashMatches(proof, role, sideEvidence) {
-  const graphHash = sideEvidence?.dependencyGraphHash;
-  if (!graphHash) return true;
-  return proof[`${role}DependencyGraphHash`] === graphHash ||
-    proof[`${role}CssDependencyGraphHash`] === graphHash ||
-    proof.dependencyGraphHashes?.[role] === graphHash ||
-    proof.cssDependencyGraphHashes?.[role] === graphHash;
-}
-
-function proofSourceMatches(proof, role, sourceText, hash) {
-  if (typeof sourceText !== 'string') return false;
-  const sourceHash = hash?.(sourceText);
-  const textFields = role === 'output' ? ['outputSourceText', 'mergedSourceText'] : [`${role}SourceText`];
-  const hashFields = role === 'output' ? ['outputSourceHash', 'mergedSourceHash'] : [`${role}SourceHash`];
-  const aliases = role === 'output' ? ['output', 'merged'] : [role];
-  return textFields.some((field) => proof[field] === sourceText) ||
-    aliases.some((alias) => proof.sourceTexts?.[alias] === sourceText || proof.sources?.[alias] === sourceText) ||
-    hashFields.some((field) => sourceHash !== undefined && proof[field] === sourceHash) ||
-    aliases.some((alias) => sourceHash !== undefined && (proof.sourceHashes?.[alias] === sourceHash || proof.hashes?.[alias] === sourceHash));
-}
-
-function dependencyGraphProofRecord(proof, change, sourcePath, evidence, binding, hash) {
-  return {
-    id: proof.id,
-    kind: proof.kind,
-    status: 'passed',
-    proofLevel: proof.proofLevel ?? 'css-dependency-graph-source-bound',
-    reasonCode: change.reasonCode,
-    side: change.side,
-    cascadeKey: change.cascadeKey,
-    sourcePath,
-    baseSourceHash: hash?.(binding.base),
-    workerSourceHash: hash?.(binding.worker),
-    headSourceHash: hash?.(binding.head),
-    outputSourceHash: hash?.(binding.output),
-    baseDependencyGraphHash: evidence.sides?.base?.dependencyGraphHash,
-    workerDependencyGraphHash: evidence.sides?.worker?.dependencyGraphHash,
-    headDependencyGraphHash: evidence.sides?.head?.dependencyGraphHash
-  };
-}
-
-function conflict(id, sourcePath, code, reasonCode, details = {}) {
-  return { code, gateId: 'css-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `css#${id}#${reasonCode}#${details.cascadeKey ?? sourcePath ?? 'source'}`, ...details } };
 }
 
 function customPropertyDefinition(record, declaration) {
@@ -254,8 +168,16 @@ function assetReference(record, declaration, url, sourceKind) {
   return baseDependencyRecord(record, declaration, { kind: 'url-asset-reference', url, sourceKind });
 }
 
-function keyframeDefinition(record) {
-  return { kind: 'keyframes-definition', name: firstCssIdent(record.conditionText), atRuleHash: record.atRuleHash, sourceSpan: record.sourceSpan, sourceHash: record.sourceHash };
+function keyframeDefinition(record, hash) {
+  return {
+    kind: 'keyframes-definition',
+    name: firstCssIdent(record.conditionText),
+    atRuleHash: record.atRuleHash,
+    rawTextHash: record.rawTextHash,
+    bodyHash: hash?.({ kind: 'frontier.lang.css.keyframes.body.v1', bodyText: keyframesBodyText(record.blockText) }),
+    sourceSpan: record.sourceSpan,
+    sourceHash: record.sourceHash
+  };
 }
 
 function fontFaceDefinition(record, family) {
@@ -300,6 +222,7 @@ function fontFamilyNames(value) {
 }
 
 function firstCssIdent(value) { return /^[-_A-Za-z][\w-]*/.exec(String(value ?? '').trim())?.[0]; }
+function keyframesBodyText(value) { const text = String(value ?? ''); const start = text.indexOf('{'); const end = text.lastIndexOf('}'); return start >= 0 && end > start ? text.slice(start + 1, end).trim() : text; }
 
 function emptyGraphEvidence(sheet) {
   return { kind: 'frontier.lang.cssDependencyGraphEvidence', version: 1, sourceHash: sheet.sourceHash, hasDependencySurface: false, dependencySurfaceCount: 0, dependencyGraphHashPresent: false, cssDependencyGraphHashPresent: false, semanticEquivalenceClaim: false };
@@ -310,11 +233,8 @@ function stableTextHash(text) { let hash = 2166136261; for (let index = 0; index
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function compactRecord(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
 function maxSideNumber(sides, field) { return Math.max(0, ...sides.map((side) => side?.[field] ?? 0)); }
-function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }
-function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
 
 const AnimationKeywords = new Set(['none', 'initial', 'inherit', 'unset', 'revert', 'linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'infinite', 'alternate', 'forwards', 'backwards', 'both', 'normal', 'reverse', 'running', 'paused']);
 const FontKeywords = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'inherit', 'initial', 'unset', 'revert']);
-const DependencyGraphProofKinds = new Set(['css-dependency-graph-proof', 'css-source-bound-dependency-graph-proof']);
 
 export { admitCssDependencyGraphProofs, createCssDependencyGraphEvidence, mergeCssDependencyGraphEvidence };

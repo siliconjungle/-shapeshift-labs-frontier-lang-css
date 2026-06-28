@@ -48,9 +48,10 @@ function safeMergeCssSource(input = {}, context = {}) {
   const mergedIndexBase = applyAtRuleBlockChanges(applyAtRuleBlockChanges(applyDeclarationChanges(applyDeclarationChanges(indexes.base, selectorTargetPlan.changed.head), selectorTargetPlan.changed.worker), blockChanges.head), blockChanges.worker);
   const mergedIndex = applyOrderedDuplicateCascadeMerge(mergedIndexBase, orderedDuplicateCascadePlan);
   const mergedSourceText = renderDeclarationIndex(mergedIndex);
+  const outputSheet = parseSheet(mergedSourceText, { sourcePath });
   const scopedCascadeAdmission = admitScopedCascadeProofs({ id, sourcePath, input, changes: scopedChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
-  const cascadeRuntimeAdmission = admitCascadeRuntimeProofs({ id, sourcePath, input, sourceShapeChanges: shapeChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
-  const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
+  const dependencyGraphAdmission = admitCssDependencyGraphProofs({ id, sourcePath, input, dependencyGraphEvidence, sourceShapeChanges: shapeChanges, outputDependencyGraphEvidence: outputSheet.dependencyGraphEvidence, binding: { base, worker, head, output: mergedSourceText }, hash });
+  const cascadeRuntimeAdmission = admitCascadeRuntimeProofs({ id, sourcePath, input, sourceShapeChanges: uncoveredSourceShapeChanges(shapeChanges, dependencyGraphAdmission.coveredSourceShapeChanges), binding: { base, worker, head, output: mergedSourceText }, hash });
   const cssModuleAdmission = admitCssModuleContractProofs({ id, sourcePath, input, moduleChanges, binding: { base, worker, head, output: mergedSourceText }, hash });
   const conflicts = [...parserConflicts, ...orderedDuplicateCascadePlan.conflicts, ...duplicateCascadeKeyConflicts, ...proofConflicts, ...overlapConflicts, ...cssModuleAdmission.conflicts, ...scopedCascadeAdmission.conflicts, ...cascadeRuntimeAdmission.conflicts, ...dependencyGraphAdmission.conflicts, ...selectorTargetPlan.conflicts];
   if (conflicts.length) return blocked(id, sourcePath, 'css-semantic-merge-conflict', conflicts, { parserEvidence, orderedCascadeOccurrenceEvidence: orderedDuplicateCascadePlan.evidence, shorthandExpansionEvidence, dependencyGraphEvidence, selectorTargetEvidence: selectorTargetPlan.evidence, cssModuleContractProofs: cssModuleAdmission.proofs, scopedCascadeProofs: scopedCascadeAdmission.proofs, cascadeRuntimeProofs: cascadeRuntimeAdmission.proofs, dependencyGraphProofs: dependencyGraphAdmission.proofs, ...blockedMergeCandidate(input, mergedSourceText, hash) });
@@ -284,5 +285,9 @@ function proofGapsForDeclaration(record, declaration) {
 }
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 function spaces(count) { return ' '.repeat(Math.max(0, count)); }
+function uncoveredSourceShapeChanges(changes, coveredKeys = []) {
+  const covered = new Set(coveredKeys);
+  return changes.filter((change) => !covered.has([change.side, change.reasonCode, change.shapeKey].join('::')));
+}
 
 export { safeMergeCssSource };

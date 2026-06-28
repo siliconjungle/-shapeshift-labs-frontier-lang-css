@@ -293,6 +293,7 @@ export interface CssSafeMergeInput {
   readonly sourceBoundCascadeProof?: CssCascadeRuntimeProof; readonly sourceBoundCascadeProofs?: readonly CssCascadeRuntimeProof[]; readonly sourceBoundCascadeProofsByPath?: Readonly<Record<string, CssCascadeRuntimeProof | readonly CssCascadeRuntimeProof[]>>;
   readonly cssDependencyGraphProof?: CssDependencyGraphProof; readonly cssDependencyGraphProofs?: readonly CssDependencyGraphProof[]; readonly cssSourceBoundDependencyGraphProof?: CssDependencyGraphProof; readonly cssSourceBoundDependencyGraphProofs?: readonly CssDependencyGraphProof[];
   readonly cssDependencyGraphProofsByPath?: Readonly<Record<string, CssDependencyGraphProof | readonly CssDependencyGraphProof[]>>; readonly cssSourceBoundDependencyGraphProofsByPath?: Readonly<Record<string, CssDependencyGraphProof | readonly CssDependencyGraphProof[]>>;
+  readonly cssDependencyGraphAutoProofs?: boolean; readonly autoCssDependencyGraphProofs?: boolean;
   readonly cssModuleContractProof?: CssModuleContractProof; readonly cssModuleContractProofs?: readonly CssModuleContractProof[]; readonly cssModuleContractProofsByPath?: Readonly<Record<string, CssModuleContractProof | readonly CssModuleContractProof[]>>; readonly cssSourceBoundModuleContractProof?: CssModuleContractProof; readonly cssSourceBoundModuleContractProofs?: readonly CssModuleContractProof[]; readonly cssSourceBoundModuleContractProofsByPath?: Readonly<Record<string, CssModuleContractProof | readonly CssModuleContractProof[]>>;
   readonly selectorTargetGraphHash?: string; readonly selectorTargetEquivalences?: readonly CssSelectorTargetEquivalence[];
   readonly cssSelectorTargetProof?: CssSelectorTargetProof; readonly cssSelectorTargetProofs?: readonly CssSelectorTargetProof[]; readonly cssSelectorTargetProofsByPath?: Readonly<Record<string, CssSelectorTargetProof | readonly CssSelectorTargetProof[]>>;
@@ -308,7 +309,6 @@ export interface CssSafeMergeInput {
   readonly baseScopedCascadeGraphHash?: string; readonly workerScopedCascadeGraphHash?: string; readonly headScopedCascadeGraphHash?: string;
   readonly baseSelectorTargetGraphHash?: string; readonly workerSelectorTargetGraphHash?: string; readonly headSelectorTargetGraphHash?: string;
 }
-
 export declare function toCssAst(document: FrontierLangDocument, options?: CssProjectionOptions): CssAstStylesheet;
 export declare function renderCssAst(ast: CssAstStylesheet): string;
 export declare function renderCssAstWithSourceMap(ast: CssAstStylesheet, options?: CssProjectionOptions): CssProjectionResult;

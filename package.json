@@ -1,6 +1,6 @@
 {
   "name": "@shapeshift-labs/frontier-lang-css",
-  "version": "0.1.30",
+  "version": "0.1.31",
   "description": "CSS semantic merge evidence and projection adapter for Frontier Lang semantic source documents.",
   "type": "module",
   "main": "./dist/index.js",
@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@shapeshift-labs/frontier-lang-kernel": "0.3.12",
-    "@shapeshift-labs/frontier-runtime-proof": "0.1.0",
+    "@shapeshift-labs/frontier-runtime-proof": "0.1.1",
     "postcss": "^8.5.15"
   },
   "devDependencies": {
