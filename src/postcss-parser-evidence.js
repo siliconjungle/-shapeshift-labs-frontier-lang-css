@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import postcss from 'postcss';
+import { selectorSpecificityRecord, splitSelectorList } from './selector-specificity.js';
 
 const ShorthandProperties = new Set(['all', 'animation', 'background', 'border', 'border-block', 'border-block-color', 'border-block-end', 'border-block-start', 'border-block-style', 'border-block-width', 'border-bottom', 'border-color', 'border-image', 'border-inline', 'border-inline-color', 'border-inline-end', 'border-inline-start', 'border-inline-style', 'border-inline-width', 'border-left', 'border-radius', 'border-right', 'border-style', 'border-top', 'border-width', 'columns', 'flex', 'font', 'gap', 'grid', 'grid-area', 'grid-column', 'grid-row', 'inset', 'inset-block', 'inset-inline', 'list-style', 'margin', 'margin-block', 'margin-inline', 'offset', 'outline', 'overflow', 'overscroll-behavior', 'padding', 'padding-block', 'padding-inline', 'place-content', 'place-items', 'place-self', 'scroll-margin', 'scroll-margin-block', 'scroll-margin-inline', 'scroll-padding', 'scroll-padding-block', 'scroll-padding-inline', 'text-decoration', 'transition']);
 const RuntimeAtRules = new Set(['keyframes', 'font-face', 'page', 'property']);
@@ -39,7 +40,8 @@ function postcssContainerRecords(nodes, scopes, sourceHash, options) {
 }
 
 function postcssRuleRecord(node, scopes, sourceHash, options) {
-  const selectors = String(node.selector ?? '').split(',').map((selector) => selector.trim()).filter(Boolean);
+  const selectors = splitSelectorList(String(node.selector ?? ''));
+  const selectorSpecificityRecords = selectors.map(selectorSpecificityRecord);
   const declarations = (node.nodes ?? []).filter((child) => child.type === 'decl').map(postcssDeclaration);
   const nestedChildren = (node.nodes ?? []).filter((child) => child.type !== 'decl' && child.type !== 'comment');
   const scopedCascadeGraphShapeKey = scopedCascadeGraphShapeKeyForScopes(scopes);
@@ -53,7 +55,8 @@ function postcssRuleRecord(node, scopes, sourceHash, options) {
     kind: 'rule',
     selectors,
     selectorHash: hashSemanticValue({ kind: 'frontier.lang.css.selectors.v2.postcss', selectors }),
-    specificity: selectors.map(selectorSpecificity),
+    specificity: selectorSpecificityRecords.map((record) => record.specificity),
+    selectorSpecificityRecords,
     scopes,
     declarations: declarations.map((declaration, ordinal) => ({
       ...declaration,
@@ -225,14 +228,6 @@ function rawPostcssText(node) {
   const start = node.source?.start?.offset;
   const end = node.source?.end?.offset;
   return typeof css === 'string' && Number.isFinite(start) && Number.isFinite(end) ? css.slice(start, end) : node.toString();
-}
-
-function selectorSpecificity(selector) {
-  const withoutStrings = selector.replace(/"[^"]*"|'[^']*'/g, '');
-  const ids = (withoutStrings.match(/#[\w-]+/g) ?? []).length;
-  const classes = (withoutStrings.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+(?:\([^)]*\))?/g) ?? []).length;
-  const elements = (withoutStrings.replace(/#[\w-]+|\.[\w-]+|\[[^\]]+\]|:{1,2}[\w-]+(?:\([^)]*\))?/g, ' ').match(/\b[A-Za-z][\w-]*\b/g) ?? []).length;
-  return [ids, classes, elements];
 }
 
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }

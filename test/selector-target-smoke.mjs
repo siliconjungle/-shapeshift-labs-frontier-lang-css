@@ -11,6 +11,8 @@ const cssMerged = safeMergeCssSource({
 });
 assert.equal(cssMerged.selectorTargetEvidence.kind, 'frontier.lang.cssSafeMergeSelectorTargetEvidence');
 assert.equal(cssMerged.selectorTargetEvidence.parserBackedRuleSpans, true);
+assert.equal(cssMerged.selectorTargetEvidence.parserBackedSelectorSpecificity, true);
+assert.equal(cssMerged.selectorTargetEvidence.selectorsLevel4Specificity, true);
 assert.equal(cssMerged.selectorTargetEvidence.sides.base.selectorSpecificityRecords, 1);
 assert.equal(cssMerged.selectorTargetEvidence.selectorMoveCount, 0);
 
@@ -86,6 +88,60 @@ assert.equal(cssSelectorMoveRebase.selectorTargetEvidence.rebaseProofs[0].baseSo
 assert.match(cssSelectorMoveRebase.mergedSourceText, /\.primary \{/);
 assert.match(cssSelectorMoveRebase.mergedSourceText, /background-color: white/);
 assert.doesNotMatch(cssSelectorMoveRebase.mergedSourceText, /\.button \{/);
+
+const functionalMoveBase = ':is(.button, #cta) { color: red; }\n';
+const functionalMoveWorker = ':is(.primary, #cta) { color: red; }\n';
+const functionalMoveHead = ':is(.button, #cta) { color: red; background-color: white; }\n';
+const functionalMoveProofBase = {
+  id: 'proof_selector_target_functional',
+  kind: 'css-source-bound-selector-target-proof',
+  status: 'passed',
+  sourcePath: 'functional.css',
+  reasonCode: 'css-selector-target-rebase-unproved',
+  moveSide: 'worker',
+  rebasedSide: 'head',
+  fromSelectors: [':is(.button, #cta)'],
+  toSelectors: [':is(.primary, #cta)'],
+  fromSpecificity: [[1, 0, 0]],
+  toSpecificity: [[1, 0, 0]],
+  selectorTargetGraphHash: 'functional-target-graph-v1',
+  baseSourceHash: hashSemanticValue(functionalMoveBase),
+  workerSourceHash: hashSemanticValue(functionalMoveWorker),
+  headSourceHash: hashSemanticValue(functionalMoveHead)
+};
+const cssFunctionalMoveWithoutSpecificityProof = safeMergeCssSource({
+  id: 'css_selector_target_functional_specificity_requires_proof',
+  sourcePath: 'functional.css',
+  baseSourceText: functionalMoveBase,
+  workerSourceText: functionalMoveWorker,
+  headSourceText: functionalMoveHead,
+  selectorTargetGraphHash: 'functional-target-graph-v1',
+  cssSelectorTargetProofs: [functionalMoveProofBase]
+});
+assert.equal(cssFunctionalMoveWithoutSpecificityProof.status, 'blocked');
+assert.equal(cssFunctionalMoveWithoutSpecificityProof.selectorTargetEvidence.moves.worker[0].functionalPseudoSpecificity, true);
+
+const cssFunctionalMoveRebase = safeMergeCssSource({
+  id: 'css_selector_target_functional_rebase',
+  sourcePath: 'functional.css',
+  baseSourceText: functionalMoveBase,
+  workerSourceText: functionalMoveWorker,
+  headSourceText: functionalMoveHead,
+  selectorTargetGraphHash: 'functional-target-graph-v1',
+  cssSelectorTargetProofs: [{
+    ...functionalMoveProofBase,
+    parserBackedSelectorSpecificity: true,
+    selectorsLevel4Specificity: true,
+    specificityExact: true,
+    specificityAlgorithm: 'selectors-level-4'
+  }]
+});
+assert.equal(cssFunctionalMoveRebase.status, 'merged');
+assert.equal(cssFunctionalMoveRebase.selectorTargetEvidence.rebaseProofs[0].parserBackedSelectorSpecificity, true);
+assert.equal(cssFunctionalMoveRebase.selectorTargetEvidence.rebaseProofs[0].selectorsLevel4Specificity, true);
+assert.equal(cssFunctionalMoveRebase.selectorTargetEvidence.rebaseProofs[0].functionalPseudoSpecificity, true);
+assert.match(cssFunctionalMoveRebase.mergedSourceText, /:is\(.primary, #cta\)/);
+assert.match(cssFunctionalMoveRebase.mergedSourceText, /background-color: white/);
 
 const cssSpecificityChangingSelectorMove = safeMergeCssSource({
   id: 'css_selector_target_specificity_change',

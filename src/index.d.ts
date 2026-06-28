@@ -50,10 +50,7 @@ export interface CssSourceRef {
   readonly regionIds?: readonly string[];
 }
 
-export interface CssAstDeclaration {
-  readonly property: string;
-  readonly value: string;
-}
+export interface CssAstDeclaration { readonly property: string; readonly value: string; }
 
 export interface CssAstRule {
   readonly kind: 'rule';
@@ -124,11 +121,14 @@ export interface CssSemanticDeclaration {
   readonly shorthandExpansion?: CssShorthandExpansionEvidence;
 }
 
+export interface CssSelectorSpecificityRecord { readonly selector: string; readonly specificity: readonly [number, number, number] | readonly number[]; readonly algorithm: 'selectors-level-4' | string; readonly parserBackedSelectorSpecificity: boolean; readonly selectorsLevel4Specificity: boolean; readonly specificityExact: boolean; readonly functionalPseudoSpecificity?: true; readonly functionalPseudos?: readonly string[]; readonly pseudoElements?: readonly string[]; }
+
 export interface CssSemanticRecord {
   readonly kind: 'rule' | 'at-rule' | string;
   readonly selectors?: readonly string[];
   readonly selectorHash?: string;
   readonly specificity?: readonly (readonly number[])[];
+  readonly selectorSpecificityRecords?: readonly CssSelectorSpecificityRecord[];
   readonly scopes?: readonly string[];
   readonly declarations?: readonly CssSemanticDeclaration[];
   readonly customProperties?: readonly string[];
@@ -267,12 +267,13 @@ export interface CssSafeMergeResult {
 export interface CssSafeMergeParserEvidence {
   readonly kind: 'frontier.lang.cssSafeMergeParserEvidence'; readonly version: 1; readonly parserNames: readonly string[];
   readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
-  readonly scopedCascadeGraphHashPresent: boolean; readonly scopedCascadeGraphShapeHashPresent?: boolean; readonly parseErrors: number; readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
+  readonly sourceHashPresent?: boolean; readonly sourceHashes?: Readonly<Record<string, string>>; readonly sourceTextHashes?: Readonly<Record<string, string>>;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly scopedCascadeGraphShapeHashPresent?: boolean; readonly parseErrors: number; readonly sourceSpanRecordCount?: number; readonly sourceSpanMissingRecordCount?: number; readonly declarationSpanCount?: number; readonly declarationSpanMissingCount?: number; readonly triviaHashRecordCount?: number; readonly triviaHashMissingRecordCount?: number; readonly sides: Readonly<Record<string, CssSafeMergeParserSideEvidence>>;
 }
 
 export interface CssSafeMergeParserSideEvidence {
-  readonly parserName: string; readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
-  readonly scopedCascadeGraphHashPresent: boolean; readonly scopedCascadeGraphShapeHashPresent?: boolean; readonly scopedCascadeGraphShapeKeys?: number; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number;
+  readonly parserName: string; readonly sourceHash?: string; readonly sourceTextHash?: string; readonly evidenceSourceHash?: string; readonly sideSourceHash?: string; readonly sourceCodeLocationInfo: boolean; readonly parserBackedSourceSpans: boolean; readonly parserBackedDeclarationSpans: boolean; readonly parserBackedTriviaHashes: boolean;
+  readonly scopedCascadeGraphHashPresent: boolean; readonly scopedCascadeGraphShapeHashPresent?: boolean; readonly scopedCascadeGraphShapeKeys?: number; readonly parseErrors: number; readonly recordCount: number; readonly declarationCount: number; readonly sourceSpanRecordCount?: number; readonly sourceSpanMissingRecordCount?: number; readonly declarationSpanCount?: number; readonly declarationSpanMissingCount?: number; readonly triviaHashRecordCount?: number; readonly triviaHashMissingRecordCount?: number;
 }
 
 export interface CssSafeMergeInput {

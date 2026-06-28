@@ -9,41 +9,36 @@ import { declarationsOverlapByCssProperty, deterministicShorthandExpansion, shor
 import { mergeShorthandExpansionEvidence } from './semantic-merge-shorthand-evidence.js';
 import { duplicateCascadeKeyConflictsForIndexes } from './semantic-merge-duplicate-cascade.js';
 import { blockedMergeCandidate } from './semantic-merge-blocked-candidate.js';
+import { mergeParserEvidence } from './semantic-merge-parser-evidence.js';
 
 function safeMergeCssSource(input = {}, context = {}) {
   const parseSheet = context.parseCssSemanticSheet;
   const hash = context.hashSemanticValue;
   const id = String(input.id ?? 'css_safe_merge');
-  const sourcePath = input.sourcePath;
-  const base = input.baseSourceText;
-  const worker = input.workerSourceText ?? base;
-  const head = input.headSourceText ?? base;
+  const sourcePath = input.sourcePath, base = input.baseSourceText, worker = input.workerSourceText ?? base, head = input.headSourceText ?? base;
   if (typeof base !== 'string' || typeof worker !== 'string' || typeof head !== 'string') return blocked(id, sourcePath, 'css-source-text-missing');
-  if (worker === head) return merged(id, sourcePath, worker, 'worker-head-identical', hash);
   const sheets = {
     base: parseSheet(base, sheetOptions(input, 'base', sourcePath)),
     worker: parseSheet(worker, sheetOptions(input, 'worker', sourcePath)),
     head: parseSheet(head, sheetOptions(input, 'head', sourcePath))
   };
+  const parserEvidence = mergeParserEvidence(sheets);
+  const parserConflicts = parserErrorConflicts(id, sourcePath, sheets);
+  if (worker === head) {
+    if (parserConflicts.length) return blocked(id, sourcePath, 'css-parser-error-blocked', parserConflicts, { parserEvidence });
+    return merged(id, sourcePath, worker, 'worker-head-identical', hash, { baseSheetHash: sheets.base.sheetHash, workerSheetHash: sheets.worker.sheetHash, headSheetHash: sheets.head.sheetHash, parserEvidence });
+  }
   const indexes = Object.fromEntries(Object.entries(sheets).map(([name, sheet]) => [name, declarationIndex(sheet, hash)]));
-  const changed = {
-    worker: changedDeclarations(indexes.base, indexes.worker, 'worker'),
-    head: changedDeclarations(indexes.base, indexes.head, 'head')
-  };
-  const blockChanges = {
-    worker: changedAtRuleBlocks(indexes.base, indexes.worker, 'worker'),
-    head: changedAtRuleBlocks(indexes.base, indexes.head, 'head')
-  };
+  const changed = { worker: changedDeclarations(indexes.base, indexes.worker, 'worker'), head: changedDeclarations(indexes.base, indexes.head, 'head') };
+  const blockChanges = { worker: changedAtRuleBlocks(indexes.base, indexes.worker, 'worker'), head: changedAtRuleBlocks(indexes.base, indexes.head, 'head') };
   const moduleChanges = cssModuleContractChanges(sheets, hash);
   const proofConflicts = proofGapConflicts(id, sourcePath, changed, indexes);
-  const parserConflicts = parserErrorConflicts(id, sourcePath, sheets);
   const duplicateCascadeKeyConflicts = duplicateCascadeKeyConflictsForIndexes(id, sourcePath, indexes);
   const overlapConflicts = [
     ...overlapDeclarationConflicts(id, sourcePath, changed.worker, changed.head),
     ...shorthandOverlapConflicts(id, sourcePath, changed.worker, changed.head),
     ...atRuleBlockOverlapConflicts(id, sourcePath, blockChanges.worker, blockChanges.head, conflict)
   ];
-  const parserEvidence = mergeParserEvidence(sheets);
   const shorthandExpansionEvidence = mergeShorthandExpansionEvidence(indexes, changed);
   const dependencyGraphEvidence = mergeCssDependencyGraphEvidence(sheets, changed);
   const selectorTargetPlan = planSelectorTargetRebase(id, sourcePath, mergeSelectorTargetEvidence(sheets, changed), changed, { ...input, sourceBinding: { base, worker, head }, hashSemanticValue: hash });
@@ -100,6 +95,7 @@ function declarationIndex(sheet, hash) {
         ruleKey,
         selectors: record.selectors,
         scopes: record.scopes ?? [], specificity: record.specificity,
+        selectorSpecificityRecords: record.selectorSpecificityRecords,
         property: declaration.property,
         value: declaration.value,
         important: declaration.important,
@@ -151,41 +147,6 @@ function parserErrorConflicts(id, sourcePath, sheets) {
   return Object.entries(sheets).flatMap(([side, sheet]) => (sheet.proofGaps ?? [])
     .filter((gap) => gap.code === 'css-parser-error')
     .map((gap) => conflict(id, sourcePath, 'css-parser-error-blocked', gap.code, { side, proofGap: gap })));
-}
-
-function mergeParserEvidence(sheets) {
-  const entries = Object.entries(sheets).map(([side, sheet]) => [side, sheetParserEvidence(sheet)]);
-  return {
-    kind: 'frontier.lang.cssSafeMergeParserEvidence',
-    version: 1,
-    parserNames: unique(entries.map(([, evidence]) => evidence.parserName)),
-    sourceCodeLocationInfo: entries.every(([, evidence]) => evidence.sourceCodeLocationInfo === true),
-    parserBackedSourceSpans: entries.every(([, evidence]) => evidence.parserBackedSourceSpans === true),
-    parserBackedDeclarationSpans: entries.every(([, evidence]) => evidence.parserBackedDeclarationSpans === true),
-    parserBackedTriviaHashes: entries.every(([, evidence]) => evidence.parserBackedTriviaHashes === true),
-    scopedCascadeGraphHashPresent: entries.every(([, evidence]) => evidence.scopedCascadeGraphHashPresent === true),
-    scopedCascadeGraphShapeHashPresent: entries.every(([, evidence]) => evidence.scopedCascadeGraphShapeHashPresent === true),
-    parseErrors: entries.reduce((sum, [, evidence]) => sum + evidence.parseErrors, 0),
-    sides: Object.fromEntries(entries)
-  };
-}
-
-function sheetParserEvidence(sheet) {
-  const records = sheet.records ?? [];
-  const declarations = records.flatMap((record) => record.declarations ?? []);
-  return {
-    parserName: sheet.parser?.name ?? 'unknown',
-    sourceCodeLocationInfo: sheet.parser?.sourceCodeLocationInfo === true,
-    parserBackedSourceSpans: records.some((record) => record.parser === 'postcss' && record.sourceSpan?.startOffset !== undefined),
-    parserBackedDeclarationSpans: declarations.some((declaration) => declaration.sourceSpan?.startOffset !== undefined),
-    parserBackedTriviaHashes: records.some((record) => record.parser === 'postcss' && typeof record.rawTextHash === 'string'),
-    scopedCascadeGraphHashPresent: records.every((record) => !(record.scopes?.length) || Boolean(record.scopedCascadeGraphHash)),
-    scopedCascadeGraphShapeHashPresent: records.every((record) => !(record.scopes?.length) || Boolean(record.scopedCascadeGraphHash && record.scopedCascadeGraphShapeKey)),
-    scopedCascadeGraphShapeKeys: unique(records.filter((record) => record.scopes?.length).map((record) => record.scopedCascadeGraphShapeKey)).length,
-    parseErrors: sheet.parser?.parseErrors?.length ?? 0,
-    recordCount: records.length,
-    declarationCount: declarations.length
-  };
 }
 
 function overlapDeclarationConflicts(id, sourcePath, workerChanges, headChanges) {

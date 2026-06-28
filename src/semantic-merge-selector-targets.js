@@ -6,6 +6,9 @@ function mergeSelectorTargetEvidence(sheets, changed) {
     version: 1,
     selectorTargetGraphHashPresent: entries.every(([, evidence]) => evidence.selectorTargetGraphHashPresent === true),
     parserBackedRuleSpans: entries.every(([, evidence]) => evidence.parserBackedRuleSpans === true),
+    parserBackedSelectorSpecificity: entries.every(([, evidence]) => evidence.parserBackedSelectorSpecificity === true),
+    selectorsLevel4Specificity: entries.every(([, evidence]) => evidence.selectorsLevel4Specificity === true),
+    functionalPseudoSpecificityRecords: entries.reduce((sum, [, evidence]) => sum + evidence.functionalPseudoSpecificityRecords, 0),
     selectorMoveCount: moves.worker.length + moves.head.length,
     workerSelectorMoves: moves.worker.length,
     headSelectorMoves: moves.head.length,
@@ -16,6 +19,8 @@ function mergeSelectorTargetEvidence(sheets, changed) {
 
 function sheetSelectorTargetEvidence(sheet) {
   const rules = (sheet.records ?? []).filter((record) => record.kind === 'rule');
+  const selectorRecords = rules.flatMap((record) => record.selectorSpecificityRecords ?? []);
+  const completeSpecificityRules = rules.filter((record) => Array.isArray(record.selectorSpecificityRecords) && record.selectorSpecificityRecords.length === (record.selectors?.length ?? 0));
   return {
     ruleCount: rules.length,
     selectorCount: rules.reduce((sum, record) => sum + (record.selectors?.length ?? 0), 0),
@@ -23,7 +28,12 @@ function sheetSelectorTargetEvidence(sheet) {
     scopedRuleCount: rules.filter((record) => (record.scopes ?? []).length > 0).length,
     selectorTargetGraphHashPresent: rules.length === 0 || rules.every((record) => Boolean(record.selectorTargetGraphHash)),
     parserBackedRuleSpans: rules.every((record) => record.parser === 'postcss' && record.sourceSpan?.startOffset !== undefined),
-    selectorSpecificityRecords: rules.filter((record) => Array.isArray(record.specificity)).length
+    selectorSpecificityRecords: completeSpecificityRules.length,
+    parserBackedSelectorSpecificity: rules.length === 0 || completeSpecificityRules.length === rules.length && selectorRecords.every((record) => record.parserBackedSelectorSpecificity === true && record.specificityExact !== false),
+    selectorsLevel4Specificity: rules.length === 0 || completeSpecificityRules.length === rules.length && selectorRecords.every((record) => record.selectorsLevel4Specificity === true),
+    selectorsLevel4SpecificityRecords: selectorRecords.filter((record) => record.selectorsLevel4Specificity === true).length,
+    functionalPseudoSpecificityRecords: selectorRecords.filter((record) => record.functionalPseudoSpecificity === true).length,
+    specificityExact: selectorRecords.every((record) => record.specificityExact !== false)
   };
 }
 
@@ -36,6 +46,8 @@ function selectorTargetMoves(changes, side) {
     const addition = additions.find((candidate) => !usedAdditions.has(candidate) && sameDeclarationTargetSignature(deletion.before, candidate.after) && deletion.before.ruleKey !== candidate.after.ruleKey);
     if (!addition) continue;
     usedAdditions.add(addition);
+    const beforeSpecificityRecords = deletion.before.selectorSpecificityRecords;
+    const afterSpecificityRecords = addition.after.selectorSpecificityRecords;
     moves.push({
       side,
       property: deletion.before.property,
@@ -47,7 +59,13 @@ function selectorTargetMoves(changes, side) {
       afterScopes: addition.after.scopes,
       beforeSpecificity: deletion.before.specificity,
       afterSpecificity: addition.after.specificity,
+      beforeSelectorSpecificityRecords: beforeSpecificityRecords,
+      afterSelectorSpecificityRecords: afterSpecificityRecords,
       specificityInvariant: specificityListKey(deletion.before.specificity) === specificityListKey(addition.after.specificity),
+      parserBackedSelectorSpecificity: selectorSpecificityRecordsParserBacked(beforeSpecificityRecords) && selectorSpecificityRecordsParserBacked(afterSpecificityRecords),
+      selectorsLevel4Specificity: selectorSpecificityRecordsLevel4(beforeSpecificityRecords) && selectorSpecificityRecordsLevel4(afterSpecificityRecords),
+      functionalPseudoSpecificity: selectorSpecificityRecordsFunctional(beforeSpecificityRecords) || selectorSpecificityRecordsFunctional(afterSpecificityRecords),
+      specificityExact: selectorSpecificityRecordsExact(beforeSpecificityRecords) && selectorSpecificityRecordsExact(afterSpecificityRecords),
       declarationHash: addition.after.declarationHash,
       beforeSelectorTargetGraphHash: deletion.before.selectorTargetGraphHash,
       afterSelectorTargetGraphHash: addition.after.selectorTargetGraphHash,
@@ -125,6 +143,7 @@ function isSelectorTargetProofForChange(proof, move, change, sourcePath, options
     proofCoversValue(proof.rebasedSide ?? proof.side, proof.rebasedSides, change.side) &&
     selectorTargetRuleOrSelectorMatches(proof, move) &&
     selectorTargetSpecificityMatches(proof, move) &&
+    selectorSpecificityEvidenceMatches(proof, move) &&
     selectorTargetGraphHashMatches(proof, move) &&
     proofSourceMatches(proof, 'base', binding.base, hash) &&
     proofSourceMatches(proof, 'worker', binding.worker, hash) &&
@@ -190,6 +209,13 @@ function rebaseChangeToSelectorMove(change, move, proof, options) {
       specificityInvariant: true,
       beforeSpecificity: move.beforeSpecificity,
       afterSpecificity: move.afterSpecificity,
+      beforeSelectorSpecificityRecords: move.beforeSelectorSpecificityRecords,
+      afterSelectorSpecificityRecords: move.afterSelectorSpecificityRecords,
+      parserBackedSelectorSpecificity: move.parserBackedSelectorSpecificity || undefined,
+      selectorsLevel4Specificity: move.selectorsLevel4Specificity || undefined,
+      functionalPseudoSpecificity: move.functionalPseudoSpecificity || undefined,
+      specificityExact: move.specificityExact,
+      specificityAlgorithm: move.selectorsLevel4Specificity ? 'selectors-level-4' : undefined,
       baseSourceHash: options.hashSemanticValue?.(options.sourceBinding?.base),
       workerSourceHash: options.hashSemanticValue?.(options.sourceBinding?.worker),
       headSourceHash: options.hashSemanticValue?.(options.sourceBinding?.head)
@@ -228,6 +254,18 @@ function sameSelectorMove(left, right) {
 function cascadeKey(scopes = [], selectors = [], property) { return [...scopes, selectors.join(','), property].join('::'); }
 function selectorListKey(value = []) { return Array.isArray(value) ? value.join(',') : undefined; }
 function specificityListKey(value = []) { return Array.isArray(value) ? value.map((item) => Array.isArray(item) ? item.join(',') : '').join('|') : undefined; }
+function selectorSpecificityEvidenceMatches(proof, move) {
+  if (move.functionalPseudoSpecificity !== true && move.specificityExact !== false) return true;
+  const algorithm = proof.specificityAlgorithm ?? proof.selectorSpecificityAlgorithm;
+  return proof.parserBackedSelectorSpecificity === true &&
+    proof.selectorsLevel4Specificity === true &&
+    proof.specificityExact !== false &&
+    algorithm === 'selectors-level-4';
+}
+function selectorSpecificityRecordsParserBacked(records) { return Array.isArray(records) && records.length > 0 && records.every((record) => record.parserBackedSelectorSpecificity === true && record.specificityExact !== false); }
+function selectorSpecificityRecordsLevel4(records) { return Array.isArray(records) && records.length > 0 && records.every((record) => record.selectorsLevel4Specificity === true); }
+function selectorSpecificityRecordsFunctional(records) { return Array.isArray(records) && records.some((record) => record.functionalPseudoSpecificity === true); }
+function selectorSpecificityRecordsExact(records) { return Array.isArray(records) && records.length > 0 && records.every((record) => record.specificityExact !== false); }
 function changeDetails(change) { return { kind: change.kind, property: (change.after ?? change.before)?.property, value: change.after?.value, important: change.after?.important }; }
 function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }
 function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
