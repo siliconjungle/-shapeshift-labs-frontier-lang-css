@@ -28,7 +28,7 @@ function parsePostcssSemanticRecords(sourceText, sourceHash, options) {
 function postcssContainerRecords(nodes, scopes, sourceHash, options) {
   const records = [];
   for (const node of nodes) {
-    if (node.type === 'rule') records.push(postcssRuleRecord(node, scopes, sourceHash, options));
+    if (node.type === 'rule') records.push(...postcssRuleRecords(node, scopes, sourceHash, options));
     else if (node.type === 'atrule') {
       records.push(postcssAtRuleRecord(node, scopes, sourceHash, options));
       if (ScopeAtRules.has(String(node.name).toLowerCase()) && node.nodes?.length) {
@@ -39,21 +39,43 @@ function postcssContainerRecords(nodes, scopes, sourceHash, options) {
   return records.sort((left, right) => left.sourceSpan.startOffset - right.sourceSpan.startOffset);
 }
 
-function postcssRuleRecord(node, scopes, sourceHash, options) {
-  const selectors = splitSelectorList(String(node.selector ?? ''));
+function postcssRuleRecords(node, scopes, sourceHash, options, parentSelectors) {
+  const selectors = parentSelectors?.length ? expandNestedSelectors(parentSelectors, node.selector) : splitSelectorList(String(node.selector ?? ''));
+  const record = postcssRuleRecord(node, scopes, sourceHash, options, selectors, parentSelectors);
+  const nestedRuleRecords = (node.nodes ?? [])
+    .filter((child) => child.type === 'rule')
+    .flatMap((child) => postcssRuleRecords(child, scopes, sourceHash, options, selectors));
+  return [record, ...nestedRuleRecords];
+}
+
+function postcssRuleRecord(node, scopes, sourceHash, options, selectors, parentSelectors) {
   const selectorSpecificityRecords = selectors.map(selectorSpecificityRecord);
   const declarations = (node.nodes ?? []).filter((child) => child.type === 'decl').map(postcssDeclaration);
   const nestedChildren = (node.nodes ?? []).filter((child) => child.type !== 'decl' && child.type !== 'comment');
+  const unsupportedNestedChildren = nestedChildren.filter((child) => child.type !== 'rule');
   const scopedCascadeGraphShapeKey = scopedCascadeGraphShapeKeyForScopes(scopes);
   const scopedCascadeGraphHash = scopedCascadeGraphHashForShape(scopedCascadeGraphShapeKey, options);
   const proofGaps = [
     ...declarations.filter((declaration) => ShorthandProperties.has(declaration.property)).map((declaration) => proofGap('css-shorthand-expansion-unproved', `CSS shorthand ${declaration.property} needs longhand expansion evidence.`)),
     ...scopes.length && !scopedCascadeGraphHash ? [proofGap('css-scoped-cascade-equivalence-unproved', 'Scoped cascade equivalence requires browser/style evidence.')] : [],
-    ...nestedChildren.length ? [proofGap('css-nesting-semantic-unproved', 'CSS nested rule semantics require nesting expansion evidence.')] : []
+    ...unsupportedNestedChildren.length ? [proofGap('css-nesting-semantic-unproved', 'CSS nested rule semantics require nesting expansion evidence.')] : []
   ];
   return compactRecord({
     kind: 'rule',
     selectors,
+    ...(parentSelectors?.length ? {
+      nestedSelectorExpansion: {
+        parser: 'postcss',
+        status: 'expanded',
+        parentSelectors,
+        nestedSelectors: splitSelectorList(String(node.selector ?? '')),
+        expandedSelectors: selectors,
+        sourceBound: true,
+        semanticEquivalenceClaim: false,
+        browserCascadeEquivalenceClaim: false,
+        browserRenderEquivalenceClaim: false
+      }
+    } : {}),
     selectorHash: hashSemanticValue({ kind: 'frontier.lang.css.selectors.v2.postcss', selectors }),
     specificity: selectorSpecificityRecords.map((record) => record.specificity),
     selectorSpecificityRecords,
@@ -71,10 +93,25 @@ function postcssRuleRecord(node, scopes, sourceHash, options) {
     sourceSpan: sourceSpanFromPostcss(node.source, options.sourcePath),
     sourceHash,
     rawTextHash: hashSemanticValue({ kind: 'frontier.lang.css.rawRuleText.v1', text: node.toString() }),
-    ruleHash: hashSemanticValue({ kind: 'frontier.lang.css.rule.v2.postcss', selectors, scopes, declarations, nestedChildren: nestedChildren.map((child) => child.type) }),
+    ruleHash: hashSemanticValue({ kind: 'frontier.lang.css.rule.v2.postcss', selectors, scopes, declarations, nestedChildren: unsupportedNestedChildren.map((child) => child.type), parentSelectors }),
     parser: 'postcss',
     proofGaps: proofGaps.length ? proofGaps : undefined
   });
+}
+
+function expandNestedSelectors(parentSelectors, selectorText) {
+  const nestedSelectors = splitSelectorList(String(selectorText ?? ''));
+  return parentSelectors.flatMap((parent) => nestedSelectors.map((nested) => expandNestedSelector(parent, nested)));
+}
+
+function expandNestedSelector(parent, nested) {
+  const parentSelector = String(parent ?? '').trim();
+  const nestedSelector = String(nested ?? '').trim();
+  if (!parentSelector) return nestedSelector;
+  if (!nestedSelector) return parentSelector;
+  if (nestedSelector.includes('&')) return nestedSelector.replace(/&/g, parentSelector).replace(/\s+/g, ' ').trim();
+  if (/^(?:>|\+|~|\|\|)\s*/.test(nestedSelector)) return `${parentSelector} ${nestedSelector}`.replace(/\s+/g, ' ').trim();
+  return `${parentSelector} ${nestedSelector}`.replace(/\s+/g, ' ').trim();
 }
 
 function postcssDeclaration(node) {
