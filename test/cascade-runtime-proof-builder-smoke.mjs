@@ -29,6 +29,30 @@ assert.equal(proof.runtimeEvidenceBound, true);
 assert.equal(proof.browserCascadeEquivalenceClaim, false);
 assert.equal(proof.autoMergeClaim, false);
 
+const capsuleProof = createCssCascadeRuntimeProof({
+  id: 'proof_css_builder_media_runtime_capsule',
+  sourcePath: 'button.css',
+  reasonCode: 'css-atrule-new-scope-unsupported',
+  side: 'worker',
+  shapeKey: 'at-rule:media::(min-width: 700px)',
+  base,
+  worker,
+  head: base,
+  output,
+  runtimeProofCapsule: {
+    mode: 'app-shell-fixture',
+    status: 'passed',
+    command: 'playwright test css-builder-runtime-capsule.spec.ts',
+    probeId: 'css:button:media-cascade-builder',
+    evidenceHash: hashSemanticValue('css builder runtime capsule evidence'),
+    signals: ['css-cascade-runtime'],
+    telemetry: { hash: 'css-builder-capsule-telemetry', cumulativeLayoutShift: 0 }
+  }
+});
+assert.equal(capsuleProof.runtimeCommand, 'playwright test css-builder-runtime-capsule.spec.ts');
+assert.equal(capsuleProof.runtimeProofMode, 'app-shell-fixture');
+assert.equal(capsuleProof.runtimeTelemetryHash, 'css-builder-capsule-telemetry');
+
 const proven = safeMergeCssSource({
   id: 'css_builder_runtime_proven',
   sourcePath: 'button.css',
