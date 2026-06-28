@@ -235,7 +235,7 @@ export interface CssSafeMergeConflict {
   readonly code: string; readonly gateId: 'css-semantic-merge' | string; readonly sourcePath?: string;
   readonly details: Readonly<Record<string, unknown>> & { readonly reasonCode: string; readonly conflictKey: string };
 }
-
+export interface CssOrderedCascadeOccurrenceEvidence { readonly kind: 'frontier.lang.cssOrderedCascadeOccurrenceEvidence'; readonly version: 1; readonly status: 'passed' | string; readonly sourcePath?: string; readonly cascadeKey: string; readonly occurrenceCount: number; readonly parserBackedDeclarationOrder: true; readonly sourceBound: true; readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false; readonly browserCascadeEquivalenceClaim: false; readonly browserRenderEquivalenceClaim: false; readonly [key: string]: unknown; }
 export interface CssSafeMergeAdmission {
   readonly status: 'auto-merge-candidate' | 'blocked' | string; readonly action: 'apply-css' | 'human-review' | string;
   readonly reviewRequired: boolean; readonly reasonCodes: readonly string[];
@@ -244,6 +244,7 @@ export interface CssSafeMergeAdmission {
   readonly cssScopedCascadeProofs?: readonly CssScopedCascadeProofRecord[];
   readonly cssDependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
   readonly cssModuleContractProofs?: readonly CssModuleContractProofRecord[];
+  readonly cssOrderedCascadeOccurrenceEvidence?: readonly CssOrderedCascadeOccurrenceEvidence[];
 }
 
 export interface CssSafeMergeResult {
@@ -261,7 +262,7 @@ export interface CssSafeMergeResult {
   readonly cssModuleContractProofs?: readonly CssModuleContractProofRecord[];
   readonly scopedCascadeProofs?: readonly CssScopedCascadeProofRecord[];
   readonly cascadeRuntimeProofs?: readonly CssCascadeRuntimeProofRecord[];
-  readonly dependencyGraphProofs?: readonly CssDependencyGraphProofRecord[];
+  readonly dependencyGraphProofs?: readonly CssDependencyGraphProofRecord[]; readonly orderedCascadeOccurrenceEvidence?: readonly CssOrderedCascadeOccurrenceEvidence[];
 }
 
 export interface CssSafeMergeParserEvidence {
