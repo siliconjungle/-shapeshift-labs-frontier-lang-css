@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
-import { safeMergeCssSource } from '../dist/index.js';
+import { parseCssSemanticSheet, safeMergeCssSource } from '../dist/index.js';
 
 const propertyBase = '@property --brand-hue { syntax: "<number>"; inherits: false; initial-value: 210; }\n.button { color: red; }\n';
 const propertyWorker = propertyBase.replace('initial-value: 210', 'initial-value: 250');
@@ -38,7 +38,53 @@ const propertyProven = safeMergeCssSource({
 assert.equal(propertyProven.status, 'merged');
 assert.equal(propertyProven.mergedSourceText, propertyOutput);
 assert.equal(propertyProven.cascadeRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(propertyProven.cascadeRuntimeProofs[0].runtimeDescriptorGraphBound, true);
+assert.equal(propertyProven.cascadeRuntimeProofs[0].baseDependencyGraphHash, graphHash(propertyBase, 'props.css'));
+assert.equal(propertyProven.cascadeRuntimeProofs[0].outputDependencyGraphHash, graphHash(propertyOutput, 'props.css'));
 assert.equal(propertyProven.cascadeRuntimeProofs[0].runtimeSignals.includes('css-property-registration-runtime'), true);
+
+const stalePropertyGraphProof = safeMergeCssSource({
+  id: 'css_property_runtime_stale_descriptor_graph',
+  sourcePath: 'props.css',
+  baseSourceText: propertyBase,
+  workerSourceText: propertyWorker.replace('initial-value: 250', 'initial-value: 275'),
+  headSourceText: propertyHead,
+  cssCascadeRuntimeProofs: [runtimeProof({
+    id: 'proof_css_property_runtime_stale_graph',
+    sourcePath: 'props.css',
+    reasonCode: 'css-property-runtime-equivalence-unproved',
+    shapeKey: 'at-rule:property::--brand-hue',
+    base: propertyBase,
+    worker: propertyWorker,
+    head: propertyHead,
+    output: propertyOutput
+  })]
+});
+assert.equal(stalePropertyGraphProof.status, 'blocked');
+assert.equal(stalePropertyGraphProof.cascadeRuntimeProofs.length, 0);
+assert.equal(stalePropertyGraphProof.conflicts.some((item) => item.details.reasonCode === 'css-property-runtime-equivalence-unproved'), true);
+
+const missingPropertyRuntimeSignal = safeMergeCssSource({
+  id: 'css_property_runtime_missing_signal',
+  sourcePath: 'props.css',
+  baseSourceText: propertyBase,
+  workerSourceText: propertyWorker,
+  headSourceText: propertyHead,
+  cssCascadeRuntimeProofs: [runtimeProof({
+    id: 'proof_css_property_runtime_missing_signal',
+    sourcePath: 'props.css',
+    reasonCode: 'css-property-runtime-equivalence-unproved',
+    shapeKey: 'at-rule:property::--brand-hue',
+    base: propertyBase,
+    worker: propertyWorker,
+    head: propertyHead,
+    output: propertyOutput,
+    runtimeSignals: ['css-page-runtime']
+  })]
+});
+assert.equal(missingPropertyRuntimeSignal.status, 'blocked');
+assert.equal(missingPropertyRuntimeSignal.cascadeRuntimeProofs.length, 0);
+assert.equal(missingPropertyRuntimeSignal.conflicts.some((item) => item.details.reasonCode === 'css-property-runtime-equivalence-unproved'), true);
 
 const pageBase = '@page { margin: 1cm; }\n.article { color: red; }\n';
 const pageWorker = pageBase.replace('margin: 1cm', 'margin: 0.75cm');
@@ -75,9 +121,39 @@ const pageProven = safeMergeCssSource({
 assert.equal(pageProven.status, 'merged');
 assert.equal(pageProven.mergedSourceText, pageOutput);
 assert.equal(pageProven.cascadeRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(pageProven.cascadeRuntimeProofs[0].runtimeDescriptorGraphBound, true);
+assert.equal(pageProven.cascadeRuntimeProofs[0].baseDependencyGraphHash, graphHash(pageBase, 'print.css'));
+assert.equal(pageProven.cascadeRuntimeProofs[0].outputDependencyGraphHash, graphHash(pageOutput, 'print.css'));
 assert.equal(pageProven.cascadeRuntimeProofs[0].runtimeSignals.includes('css-page-runtime'), true);
 
-function runtimeProof({ id, sourcePath, reasonCode, shapeKey, base, worker, head, output }) {
+function runtimeProof({ id, sourcePath, reasonCode, shapeKey, base, worker, head, output, runtimeSignals }) {
   const runtimeSignal = reasonCode.includes('property') ? 'css-property-registration-runtime' : 'css-page-runtime';
-  return { id, kind: 'css-source-bound-cascade-runtime-proof', status: 'passed', sourcePath, reasonCode, side: 'worker', shapeKey, baseSourceHash: hashSemanticValue(base), workerSourceHash: hashSemanticValue(worker), headSourceHash: hashSemanticValue(head), outputSourceHash: hashSemanticValue(output), runtimeCommand: 'playwright test css-runtime-at-rules.spec.ts', runtimeProbeId: `${shapeKey}:probe`, runtimeEvidenceHash: hashSemanticValue(`${sourcePath}:${reasonCode}:${shapeKey}:runtime`), runtimeSignals: [runtimeSignal] };
+  return {
+    id,
+    kind: 'css-source-bound-cascade-runtime-proof',
+    status: 'passed',
+    proofLevel: 'css-runtime-descriptor-source-bound',
+    sourcePath,
+    reasonCode,
+    side: 'worker',
+    shapeKey,
+    baseSourceHash: hashSemanticValue(base),
+    workerSourceHash: hashSemanticValue(worker),
+    headSourceHash: hashSemanticValue(head),
+    outputSourceHash: hashSemanticValue(output),
+    dependencyGraphHashes: {
+      base: graphHash(base, sourcePath),
+      worker: graphHash(worker, sourcePath),
+      head: graphHash(head, sourcePath),
+      output: graphHash(output, sourcePath)
+    },
+    runtimeCommand: 'playwright test css-runtime-at-rules.spec.ts',
+    runtimeProbeId: `${shapeKey}:probe`,
+    runtimeEvidenceHash: hashSemanticValue(`${sourcePath}:${reasonCode}:${shapeKey}:runtime`),
+    runtimeSignals: runtimeSignals ?? [runtimeSignal]
+  };
+}
+
+function graphHash(sourceText, sourcePath) {
+  return parseCssSemanticSheet(sourceText, { sourcePath }).dependencyGraphEvidence.dependencyGraphHash;
 }

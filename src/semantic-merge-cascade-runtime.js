@@ -19,6 +19,10 @@ function createCssCascadeRuntimeProof(input = {}) {
     workerSourceHash: sourceHash(input, 'worker'),
     headSourceHash: sourceHash(input, 'head'),
     outputSourceHash: sourceHash(input, 'output'),
+    baseDependencyGraphHash: dependencyGraphHash(input, 'base'),
+    workerDependencyGraphHash: dependencyGraphHash(input, 'worker'),
+    headDependencyGraphHash: dependencyGraphHash(input, 'head'),
+    outputDependencyGraphHash: dependencyGraphHash(input, 'output'),
     runtimeCommand: runtime.command,
     runtimeProbeId: runtime.probeId,
     runtimeEvidenceHash: runtime.evidenceHash,
@@ -39,12 +43,12 @@ function createCssCascadeRuntimeProof(input = {}) {
   });
 }
 
-function admitCascadeRuntimeProofs({ id, sourcePath, input, sourceShapeChanges, binding, hash }) {
+function admitCascadeRuntimeProofs({ id, sourcePath, input, sourceShapeChanges, dependencyGraphEvidence, outputDependencyGraphEvidence, binding, hash }) {
   const proofs = cascadeRuntimeProofCandidates(input, sourcePath);
   const admitted = [];
   const conflicts = [];
   for (const change of sourceShapeChanges) {
-    const proof = proofs.find((candidate) => isCascadeRuntimeProofForChange(candidate, change, sourcePath, binding, hash));
+    const proof = proofs.find((candidate) => isCascadeRuntimeProofForChange(candidate, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence));
     if (proof) admitted.push(cascadeRuntimeProofRecord(proof, change, sourcePath, binding, hash));
     else conflicts.push(conflict(id, sourcePath, 'css-source-shape-unsupported', change.reasonCode, change));
   }
@@ -68,7 +72,7 @@ function cascadeRuntimeProofCandidates(input = {}, sourcePath) {
   ].flatMap(asArray).filter(Boolean);
 }
 
-function isCascadeRuntimeProofForChange(proof, change, sourcePath, binding, hash) {
+function isCascadeRuntimeProofForChange(proof, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence) {
   return Boolean(proof && typeof proof === 'object') &&
     CascadeRuntimeProofKinds.has(proof.kind) &&
     proof.status === 'passed' &&
@@ -80,6 +84,7 @@ function isCascadeRuntimeProofForChange(proof, change, sourcePath, binding, hash
     cascadeProofSourceMatches(proof, 'worker', binding.worker, hash) &&
     cascadeProofSourceMatches(proof, 'head', binding.head, hash) &&
     cascadeProofSourceMatches(proof, 'output', binding.output, hash) &&
+    descriptorRuntimeGraphMatches(proof, change, dependencyGraphEvidence, outputDependencyGraphEvidence) &&
     Boolean(cascadeRuntimeEvidenceMetadata(proof, change.reasonCode));
 }
 
@@ -110,6 +115,11 @@ function cascadeRuntimeProofRecord(proof, change, sourcePath, binding, hash) {
     workerSourceHash: hash?.(binding.worker),
     headSourceHash: hash?.(binding.head),
     outputSourceHash: hash?.(binding.output),
+    baseDependencyGraphHash: descriptorRuntimeReason(change.reasonCode) ? dependencyGraphHashForSide(proof, 'base') : undefined,
+    workerDependencyGraphHash: descriptorRuntimeReason(change.reasonCode) ? dependencyGraphHashForSide(proof, 'worker') : undefined,
+    headDependencyGraphHash: descriptorRuntimeReason(change.reasonCode) ? dependencyGraphHashForSide(proof, 'head') : undefined,
+    outputDependencyGraphHash: descriptorRuntimeReason(change.reasonCode) ? dependencyGraphHashForSide(proof, 'output') : undefined,
+    runtimeDescriptorGraphBound: descriptorRuntimeReason(change.reasonCode) ? true : undefined,
     runtimeCommand: runtimeEvidence.command,
     runtimeProbeId: runtimeEvidence.probeId,
     runtimeEvidenceHash: runtimeEvidence.evidenceHash,
@@ -139,6 +149,32 @@ function cascadeRuntimeEvidenceMetadata(proof, reasonCode) {
   const signals = runtimeSignalSet(proof);
   if ((!command && !probeId) || !evidenceHash || !requiredSignals.some((signal) => signals.has(signal))) return undefined;
   return { command, probeId, evidenceHash, signals: [...signals].sort(), requiredSignals };
+}
+
+function descriptorRuntimeGraphMatches(proof, change, dependencyGraphEvidence, outputDependencyGraphEvidence) {
+  if (!descriptorRuntimeReason(change.reasonCode)) return true;
+  return dependencyGraphHashForSide(proof, 'base') === dependencyGraphEvidence?.sides?.base?.dependencyGraphHash &&
+    dependencyGraphHashForSide(proof, 'worker') === dependencyGraphEvidence?.sides?.worker?.dependencyGraphHash &&
+    dependencyGraphHashForSide(proof, 'head') === dependencyGraphEvidence?.sides?.head?.dependencyGraphHash &&
+    dependencyGraphHashForSide(proof, 'output') === outputDependencyGraphEvidence?.dependencyGraphHash;
+}
+
+function descriptorRuntimeReason(reasonCode = '') {
+  return reasonCode.includes('property') || reasonCode.includes('page');
+}
+
+function dependencyGraphHash(input, role) {
+  for (const alias of roleAliases(role)) {
+    const field = `${alias}DependencyGraphHash`;
+    const cssField = `${alias}CssDependencyGraphHash`;
+    if (firstHashString(input[field], input[cssField])) return firstHashString(input[field], input[cssField]);
+    if (firstHashString(input.dependencyGraphHashes?.[alias], input.cssDependencyGraphHashes?.[alias])) return firstHashString(input.dependencyGraphHashes?.[alias], input.cssDependencyGraphHashes?.[alias]);
+  }
+  return undefined;
+}
+
+function dependencyGraphHashForSide(proof, role) {
+  return dependencyGraphHash(proof, role);
 }
 
 function runtimeSignalSet(proof) {

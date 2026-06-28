@@ -12,6 +12,10 @@ export interface CssCascadeRuntimeProof {
   readonly shapeKeys?: readonly string[];
   readonly baseSourceText?: string; readonly workerSourceText?: string; readonly headSourceText?: string; readonly outputSourceText?: string; readonly mergedSourceText?: string;
   readonly baseSourceHash?: string; readonly workerSourceHash?: string; readonly headSourceHash?: string; readonly outputSourceHash?: string; readonly mergedSourceHash?: string;
+  readonly baseDependencyGraphHash?: string; readonly workerDependencyGraphHash?: string; readonly headDependencyGraphHash?: string; readonly outputDependencyGraphHash?: string; readonly mergedDependencyGraphHash?: string;
+  readonly baseCssDependencyGraphHash?: string; readonly workerCssDependencyGraphHash?: string; readonly headCssDependencyGraphHash?: string; readonly outputCssDependencyGraphHash?: string; readonly mergedCssDependencyGraphHash?: string;
+  readonly dependencyGraphHashes?: Readonly<Record<string, string>>;
+  readonly cssDependencyGraphHashes?: Readonly<Record<string, string>>;
   readonly sourceTexts?: Readonly<Record<string, string>>;
   readonly sources?: Readonly<Record<string, string>>;
   readonly sourceHashes?: Readonly<Record<string, string>>;
@@ -28,6 +32,7 @@ export interface CssCascadeRuntimeProof {
   readonly runtimeEvidence?: CssCascadeRuntimeProofEvidenceRef;
   readonly browserEvidence?: CssCascadeRuntimeProofEvidenceRef;
   readonly runtimeEvidenceBound?: boolean;
+  readonly runtimeDescriptorGraphBound?: boolean;
   readonly browserCascadeEquivalenceClaim?: boolean;
   readonly browserRenderEquivalenceClaim?: boolean;
   readonly semanticEquivalenceClaim?: boolean;
@@ -65,6 +70,11 @@ export interface CssCascadeRuntimeProofRecord {
   readonly workerSourceHash?: string;
   readonly headSourceHash?: string;
   readonly outputSourceHash?: string;
+  readonly baseDependencyGraphHash?: string;
+  readonly workerDependencyGraphHash?: string;
+  readonly headDependencyGraphHash?: string;
+  readonly outputDependencyGraphHash?: string;
+  readonly runtimeDescriptorGraphBound?: true;
   readonly runtimeCommand?: string;
   readonly runtimeProbeId?: string;
   readonly runtimeEvidenceHash: string;
