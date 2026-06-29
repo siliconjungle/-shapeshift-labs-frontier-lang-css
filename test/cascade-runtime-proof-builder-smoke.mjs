@@ -46,12 +46,24 @@ const capsuleProof = createCssCascadeRuntimeProof({
     probeId: 'css:button:media-cascade-builder',
     evidenceHash: hashSemanticValue('css builder runtime capsule evidence'),
     signals: ['css-cascade-runtime'],
-    telemetry: { hash: 'css-builder-capsule-telemetry', cumulativeLayoutShift: 0 }
+    telemetry: {
+      hash: 'css-builder-capsule-telemetry',
+      domSnapshotHash: 'css-builder-capsule-dom',
+      computedStyleHash: 'css-builder-capsule-style',
+      layoutSnapshotHash: 'css-builder-capsule-layout',
+      eventTraceHash: 'css-builder-capsule-events',
+      accessibilitySnapshotHash: 'css-builder-capsule-accessibility',
+      focusSnapshotHash: 'css-builder-capsule-focus',
+      layoutShiftHash: 'css-builder-capsule-layout-shift',
+      cumulativeLayoutShift: 0
+    }
   }
 });
 assert.equal(capsuleProof.runtimeCommand, 'playwright test css-builder-runtime-capsule.spec.ts');
 assert.equal(capsuleProof.runtimeProofMode, 'app-shell-fixture');
 assert.equal(capsuleProof.runtimeTelemetryHash, 'css-builder-capsule-telemetry');
+assert.equal(capsuleProof.runtimeAccessibilitySnapshotHash, 'css-builder-capsule-accessibility');
+assert.equal(capsuleProof.runtimeFocusSnapshotHash, 'css-builder-capsule-focus');
 
 const proven = safeMergeCssSource({
   id: 'css_builder_runtime_proven',

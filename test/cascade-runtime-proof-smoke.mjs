@@ -100,6 +100,10 @@ const capsuleProof = {
       computedStyleHash: 'css-capsule-style',
       layoutSnapshotHash: 'css-capsule-layout',
       eventTraceHash: 'css-capsule-events',
+      accessibilitySnapshotHash: 'css-capsule-accessibility',
+      focusSnapshotHash: 'css-capsule-focus',
+      layoutShiftHash: 'css-capsule-layout-shift',
+      screenshotHash: 'css-capsule-screenshot',
       cumulativeLayoutShift: 0
     }
   }
@@ -123,8 +127,35 @@ assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeTelemetryHash, 'css-ca
 assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeDomSnapshotHash, 'css-capsule-dom');
 assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeComputedStyleHash, 'css-capsule-style');
 assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeLayoutSnapshotHash, 'css-capsule-layout');
+assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeAccessibilitySnapshotHash, 'css-capsule-accessibility');
+assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeFocusSnapshotHash, 'css-capsule-focus');
+assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeLayoutShiftHash, 'css-capsule-layout-shift');
+assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeScreenshotHash, 'css-capsule-screenshot');
 assert.equal(capsuleProven.cascadeRuntimeProofs[0].runtimeCumulativeLayoutShift, 0);
 assert.equal(typeof capsuleProven.cascadeRuntimeProofs[0].runtimeProofCapsuleHash, 'string');
+
+const missingAccessibilityCapsule = safeMergeCssSource({
+  id: 'css_source_shape_capsule_missing_accessibility',
+  sourcePath: 'button.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: base,
+  scopedCascadeGraphHash: 'hash_scoped_cascade',
+  cssCascadeRuntimeProofs: [{
+    ...capsuleProof,
+    id: 'proof_css_source_shape_media_capsule_missing_accessibility',
+    runtimeProofCapsule: {
+      ...capsuleProof.runtimeProofCapsule,
+      telemetry: {
+        ...capsuleProof.runtimeProofCapsule.telemetry,
+        accessibilitySnapshotHash: undefined
+      }
+    }
+  }]
+});
+assert.equal(missingAccessibilityCapsule.status, 'blocked');
+assert.equal(missingAccessibilityCapsule.cascadeRuntimeProofs.length, 0);
+assert.equal(missingAccessibilityCapsule.conflicts.some((conflict) => conflict.details.reasonCode === 'css-atrule-new-scope-unsupported'), true);
 
 const blockedCapsuleProof = {
   ...capsuleProof,
