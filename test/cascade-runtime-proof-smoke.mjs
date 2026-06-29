@@ -157,6 +157,41 @@ assert.equal(missingAccessibilityCapsule.status, 'blocked');
 assert.equal(missingAccessibilityCapsule.cascadeRuntimeProofs.length, 0);
 assert.equal(missingAccessibilityCapsule.conflicts.some((conflict) => conflict.details.reasonCode === 'css-atrule-new-scope-unsupported'), true);
 
+const broadTopLevelClaim = safeMergeCssSource({
+  id: 'css_source_shape_broad_top_level_claim',
+  sourcePath: 'button.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: base,
+  scopedCascadeGraphHash: 'hash_scoped_cascade',
+  cssCascadeRuntimeProofs: [{ ...proof, id: 'proof_css_source_shape_broad_top_level_claim', browserRenderEquivalenceClaim: true }]
+});
+assert.equal(broadTopLevelClaim.status, 'blocked');
+assert.equal(broadTopLevelClaim.cascadeRuntimeProofs.length, 0);
+assert.equal(broadTopLevelClaim.conflicts.some((conflict) => conflict.details.reasonCode === 'css-cascade-runtime-proof-broad-claim'), true);
+assert.equal(broadTopLevelClaim.conflicts.some((conflict) => conflict.details.broadClaimFields?.includes('browserRenderEquivalenceClaim')), true);
+
+const nestedBroadCapsuleClaim = safeMergeCssSource({
+  id: 'css_source_shape_nested_broad_capsule_claim',
+  sourcePath: 'button.css',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: base,
+  scopedCascadeGraphHash: 'hash_scoped_cascade',
+  cssCascadeRuntimeProofs: [{
+    ...capsuleProof,
+    id: 'proof_css_source_shape_nested_broad_capsule_claim',
+    runtimeProofCapsule: {
+      ...capsuleProof.runtimeProofCapsule,
+      renderEquivalenceClaim: true
+    }
+  }]
+});
+assert.equal(nestedBroadCapsuleClaim.status, 'blocked');
+assert.equal(nestedBroadCapsuleClaim.cascadeRuntimeProofs.length, 0);
+assert.equal(nestedBroadCapsuleClaim.conflicts.some((conflict) => conflict.details.reasonCode === 'css-cascade-runtime-proof-broad-claim'), true);
+assert.equal(nestedBroadCapsuleClaim.conflicts.some((conflict) => conflict.details.broadClaimFields?.includes('runtimeProofCapsule.renderEquivalenceClaim')), true);
+
 const blockedCapsuleProof = {
   ...capsuleProof,
   id: 'proof_css_source_shape_media_capsule_blocked',

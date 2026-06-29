@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { normalizeRuntimeProofCapsule, runtimeEvidenceMetadataFromProof, validateRuntimeProofAgainstProbe } from '@shapeshift-labs/frontier-runtime-proof';
+import { cascadeRuntimeProofBroadClaimFields } from './cascade-runtime-proof-claims.js';
 
 function createCssCascadeRuntimeProof(input = {}) {
   const runtime = runtimeEvidenceInput(input);
@@ -50,7 +51,11 @@ function admitCascadeRuntimeProofs({ id, sourcePath, input, sourceShapeChanges, 
   for (const change of sourceShapeChanges) {
     const proof = proofs.find((candidate) => isCascadeRuntimeProofForChange(candidate, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence));
     if (proof) admitted.push(cascadeRuntimeProofRecord(proof, change, sourcePath, binding, hash));
-    else conflicts.push(conflict(id, sourcePath, 'css-source-shape-unsupported', change.reasonCode, change));
+    else {
+      const invalidClaim = invalidBroadClaimProofForChange(proofs, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence);
+      if (invalidClaim) conflicts.push(broadClaimConflict(id, sourcePath, invalidClaim));
+      conflicts.push(conflict(id, sourcePath, 'css-source-shape-unsupported', change.reasonCode, change));
+    }
   }
   return { proofs: admitted, conflicts };
 }
@@ -76,6 +81,7 @@ function isCascadeRuntimeProofForChange(proof, change, sourcePath, binding, hash
   return Boolean(proof && typeof proof === 'object') &&
     CascadeRuntimeProofKinds.has(proof.kind) &&
     proof.status === 'passed' &&
+    !cascadeRuntimeProofBroadClaimFields(proof).length &&
     proof.sourcePath === sourcePath &&
     proofCoversValue(proof.reasonCode, proof.reasonCodes, change.reasonCode) &&
     proofCoversValue(proof.side, proof.sides, change.side) &&
@@ -86,6 +92,26 @@ function isCascadeRuntimeProofForChange(proof, change, sourcePath, binding, hash
     cascadeProofSourceMatches(proof, 'output', binding.output, hash) &&
     descriptorRuntimeGraphMatches(proof, change, dependencyGraphEvidence, outputDependencyGraphEvidence) &&
     Boolean(cascadeRuntimeEvidenceMetadata(proof, change.reasonCode));
+}
+
+function invalidBroadClaimProofForChange(proofs, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence) {
+  return proofs.find((proof) => cascadeRuntimeProofBroadClaimFields(proof).length &&
+    proofMatchesRuntimeBoundaryWithoutClaimCheck(proof, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence));
+}
+
+function proofMatchesRuntimeBoundaryWithoutClaimCheck(proof, change, sourcePath, binding, hash, dependencyGraphEvidence, outputDependencyGraphEvidence) {
+  return Boolean(proof && typeof proof === 'object') &&
+    CascadeRuntimeProofKinds.has(proof.kind) &&
+    proof.status === 'passed' &&
+    proof.sourcePath === sourcePath &&
+    proofCoversValue(proof.reasonCode, proof.reasonCodes, change.reasonCode) &&
+    proofCoversValue(proof.side, proof.sides, change.side) &&
+    proofCoversValue(proof.shapeKey, proof.shapeKeys, change.shapeKey) &&
+    cascadeProofSourceMatches(proof, 'base', binding.base, hash) &&
+    cascadeProofSourceMatches(proof, 'worker', binding.worker, hash) &&
+    cascadeProofSourceMatches(proof, 'head', binding.head, hash) &&
+    cascadeProofSourceMatches(proof, 'output', binding.output, hash) &&
+    descriptorRuntimeGraphMatches(proof, change, dependencyGraphEvidence, outputDependencyGraphEvidence);
 }
 
 function cascadeProofSourceMatches(proof, role, sourceText, hash) {
@@ -136,6 +162,21 @@ function cascadeRuntimeProofRecord(proof, change, sourcePath, binding, hash) {
 
 function conflict(id, sourcePath, code, reasonCode, details = {}) {
   return { code, gateId: 'css-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `css#${id}#${reasonCode}#${details.cascadeKey ?? details.shapeKey ?? sourcePath ?? 'source'}`, ...details } };
+}
+
+function broadClaimConflict(id, sourcePath, proof) {
+  const reasonCode = 'css-cascade-runtime-proof-broad-claim';
+  return conflict(id, sourcePath, 'css-cascade-runtime-proof-blocked', reasonCode, {
+    invalidRuntimeProofId: proof.id,
+    broadClaimFields: cascadeRuntimeProofBroadClaimFields(proof),
+    proofGap: {
+      code: reasonCode,
+      status: 'not-claimed',
+      summary: 'CSS cascade runtime proofs cannot self-assert broad browser, render, semantic, or auto-merge equivalence claims.',
+      failClosed: true,
+      semanticEquivalenceClaim: false
+    }
+  });
 }
 
 function cascadeRuntimeEvidenceMetadata(proof, reasonCode) {
